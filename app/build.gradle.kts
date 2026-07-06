@@ -47,6 +47,9 @@ android {
 }
 
 dependencies {
+
+    implementation("com.airbnb.android:lottie-compose:6.4.0")
+    implementation("androidx.compose.material:material-icons-extended:1.7.0")
     // Credential Manager (구글 로그인)
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
