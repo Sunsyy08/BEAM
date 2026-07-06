@@ -46,30 +46,27 @@ val sampleRecords = listOf(
 // ── HomeScreen ────────────────────────────────
 @Composable
 fun HomeScreen(
-    onEmotionClick: (Int) -> Unit = {},
-    onAddClick: () -> Unit = {},
-    onArchiveClick: () -> Unit = {}
+    isDark: Boolean,
+    onDarkModeToggle: (Boolean) -> Unit,
+    showBottomSheet: Boolean,
+    onBottomSheetDismiss: () -> Unit,
+    onEmotionClick: (Int) -> Unit = {}
 ) {
-    val systemDark = isSystemInDarkTheme()
-    var isDark by remember { mutableStateOf(systemDark) }
-
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
     val cardBg = if (isDark) DarkSurface else LightSurface
 
+    if (showBottomSheet) {
+        AddEmotionBottomSheet(
+            isDark = isDark,
+            onDismiss = onBottomSheetDismiss,
+            onSubmit = { }
+        )
+    }
+
     Scaffold(
         containerColor = bgColor,
-        bottomBar = {
-            HomeBottomBar(
-                isDark = isDark,
-                bgColor = bgColor,
-                textColor = textColor,
-                subTextColor = subTextColor,
-                onAddClick = onAddClick,
-                onArchiveClick = onArchiveClick
-            )
-        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -123,7 +120,7 @@ fun HomeScreen(
                     }
                     Switch(
                         checked = isDark,
-                        onCheckedChange = { isDark = it },
+                        onCheckedChange = { onDarkModeToggle(it) },
                         modifier = Modifier.fillMaxSize(),
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.Transparent,
@@ -374,7 +371,8 @@ fun HomeBottomBar(
     textColor: Color,
     subTextColor: Color,
     onAddClick: () -> Unit,
-    onArchiveClick: () -> Unit
+    onArchiveClick: () -> Unit,
+    onHomeClick: () -> Unit = {}
 ) {
     var homeClicked by remember { mutableStateOf(false) }
     var addClicked by remember { mutableStateOf(false) }
@@ -394,7 +392,10 @@ fun HomeBottomBar(
             // 홈
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { homeClicked = !homeClicked }
+                modifier = Modifier.clickable {
+                    homeClicked = !homeClicked
+                    onHomeClick()
+                }
             ) {
                 LottieIcon(
                     resId = if (isDark) R.raw.icon_home_dark else R.raw.icon_home_light,
@@ -486,17 +487,4 @@ fun LottieIcon(
         progress = { progress },
         modifier = Modifier.size(size)
     )
-}
-
-// ── Preview ───────────────────────────────────
-@Preview(showBackground = true, name = "Home Light")
-@Composable
-fun HomeScreenLightPreview() {
-    HomeScreen()
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF141414, name = "Home Dark")
-@Composable
-fun HomeScreenDarkPreview() {
-    HomeScreen()
 }

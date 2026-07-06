@@ -37,7 +37,8 @@ val sampleEmotionRecords = listOf(
 fun EmotionDetailScreen(
     emotion: EmotionCard,
     records: List<EmotionRecordResponse> = sampleEmotionRecords,
-    isDark: Boolean = isSystemInDarkTheme(),
+    isDark: Boolean,
+    onDarkModeToggle: (Boolean) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     val bgColor = if (isDark) DarkBackground else LightBackground
@@ -48,16 +49,6 @@ fun EmotionDetailScreen(
 
     Scaffold(
         containerColor = bgColor,
-        bottomBar = {
-            HomeBottomBar(
-                isDark = isDark,
-                bgColor = bgColor,
-                textColor = textColor,
-                subTextColor = subTextColor,
-                onAddClick = {},
-                onArchiveClick = {}
-            )
-        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -213,22 +204,4 @@ fun EmotionRecordItem(
             )
         }
     }
-}
-
-// ── Preview ───────────────────────────────────
-@Preview(showBackground = true, name = "EmotionDetail Light")
-@Composable
-fun EmotionDetailLightPreview() {
-    EmotionDetailScreen(
-        emotion = sampleEmotions[0]
-    )
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF141414, name = "EmotionDetail Dark")
-@Composable
-fun EmotionDetailDarkPreview() {
-    EmotionDetailScreen(
-        emotion = sampleEmotions[0],
-        isDark = true
-    )
 }
