@@ -11,12 +11,12 @@ plugins {
 
 android {
     namespace = "com.project.beam"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.project.beam"
         minSdk = 33
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -48,6 +48,7 @@ android {
 
 dependencies {
 
+    implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.airbnb.android:lottie-compose:6.4.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
     // Credential Manager (구글 로그인)

@@ -46,6 +46,7 @@ val sampleRecords = listOf(
 // ── HomeScreen ────────────────────────────────
 @Composable
 fun HomeScreen(
+    onEmotionClick: (Int) -> Unit = {},
     onAddClick: () -> Unit = {},
     onArchiveClick: () -> Unit = {}
 ) {
@@ -155,7 +156,11 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // ── 감정 카드 그리드 ──
-            EmotionGrid(emotions = sampleEmotions, isDark = isDark)
+            EmotionGrid(
+                emotions = sampleEmotions,
+                isDark = isDark,
+                onEmotionClick = onEmotionClick
+            )
 
             Spacer(modifier = Modifier.height(28.dp))
 
@@ -194,26 +199,36 @@ fun HomeScreen(
 
 // ── 감정 카드 그리드 ──────────────────────────
 @Composable
-fun EmotionGrid(emotions: List<EmotionCard>, isDark: Boolean) {
+fun EmotionGrid(
+    emotions: List<EmotionCard>,
+    isDark: Boolean,
+    onEmotionClick: (Int) -> Unit = {}
+) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            emotions.take(2).forEach { emotion ->
+            emotions.take(2).forEachIndexed { index, emotion ->
                 EmotionCardItem(
                     emotion = emotion,
                     isDark = isDark,
-                    modifier = Modifier.weight(1f).height(140.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(140.dp)
+                        .clickable { onEmotionClick(index) }
                 )
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            emotions.drop(2).forEach { emotion ->
+            emotions.drop(2).forEachIndexed { index, emotion ->
                 EmotionCardItem(
                     emotion = emotion,
                     isDark = isDark,
-                    modifier = Modifier.weight(1f).height(110.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(110.dp)
+                        .clickable { onEmotionClick(index + 2) }
                 )
             }
         }

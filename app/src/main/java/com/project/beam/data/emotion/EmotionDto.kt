@@ -35,3 +35,11 @@ data class RecentRecordResponse(
     val emotion_emoji: String,
     val created_at: String
 )
+
+data class EmotionRecordResponse(
+    val id: Int,
+    val content: String,
+    val emotion_name: String,
+    val emotion_emoji: String,
+    val created_at: String
+)
