@@ -25,17 +25,14 @@ import com.project.beam.ui.auth.LoginScreen
 import com.project.beam.ui.home.EmotionDetailScreen
 import com.project.beam.ui.home.HomeScreen
 import com.project.beam.ui.home.LottieIcon
-import com.project.beam.ui.home.sampleEmotions
 import com.project.beam.ui.theme.*
+import com.project.beam.viewmodel.EmotionCardUi
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Home : Screen("home")
     object Archive : Screen("archive")
-    object EmotionDetail : Screen("emotion_detail/{emotionIndex}") {
-        fun createRoute(index: Int) = "emotion_detail/$index"
-    }
-}
+    object EmotionDetail : Screen("emotion_detail")}
 
 @Composable
 fun BeamNavGraph(
@@ -59,6 +56,8 @@ fun BeamNavGraph(
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
+
+    var selectedEmotionCard by remember { mutableStateOf<com.project.beam.viewmodel.EmotionCardUi?>(null) }
 
     Scaffold(
         containerColor = bgColor,
@@ -114,20 +113,22 @@ fun BeamNavGraph(
                     onDarkModeToggle = { isDark = it },
                     showBottomSheet = showBottomSheet,
                     onBottomSheetDismiss = { showBottomSheet = false },
-                    onEmotionClick = { index ->
-                        navController.navigate(Screen.EmotionDetail.createRoute(index))
+                    onEmotionClick = { card ->
+                        selectedEmotionCard = card
+                        navController.navigate(Screen.EmotionDetail.route)
                     }
                 )
             }
 
-            composable(Screen.EmotionDetail.route) { backStackEntry ->
-                val index = backStackEntry.arguments?.getString("emotionIndex")?.toIntOrNull() ?: 0
-                EmotionDetailScreen(
-                    emotion = sampleEmotions[index],
-                    isDark = isDark,
-                    onDarkModeToggle = { isDark = it },
-                    onBackClick = { navController.popBackStack() }
-                )
+            composable(Screen.EmotionDetail.route) {
+                selectedEmotionCard?.let { card ->
+                    EmotionDetailScreen(
+                        emotionCardUi = card,
+                        isDark = isDark,
+                        onDarkModeToggle = { isDark = it },
+                        onBackClick = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(Screen.Archive.route) {

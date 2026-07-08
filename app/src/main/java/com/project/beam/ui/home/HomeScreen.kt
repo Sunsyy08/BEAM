@@ -2,9 +2,10 @@ package com.project.beam.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,30 +18,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.project.beam.data.emotion.EmotionCard
-import com.project.beam.data.emotion.RecentRecordResponse
-import com.project.beam.ui.theme.*
-import androidx.compose.ui.unit.Dp
 import com.airbnb.lottie.compose.*
 import com.project.beam.R
-import androidx.compose.foundation.clickable
+import com.project.beam.data.emotion.EmotionCard
+import com.project.beam.data.emotion.RecordResponse
+import com.project.beam.ui.theme.*
+import com.project.beam.viewmodel.EmotionCardUi
+import com.project.beam.viewmodel.EmotionViewModel
+import com.project.beam.viewmodel.RecordSubmitState
 
-// ── 샘플 데이터 ──────────────────────────────
-val sampleEmotions = listOf(
-    EmotionCard("☀️", "행복", 4, Color(0xFFFFF3C4), Color(0xFF4A3A00), Color(0xFFFFE066), Color(0xFFFFD700)),
-    EmotionCard("🌧", "우울", 3, Color(0xFFDAE0F5), Color(0xFF1A2456), Color(0xFF8FA8FF), Color(0xFF3D5AFE)),
-    EmotionCard("🌙", "외로움", 3, Color(0xFFE8DCFF), Color(0xFF2D1F5E), Color(0xFFB39DFF), Color(0xFF7C4DFF)),
-    EmotionCard("😤", "짜증", 2, Color(0xFFFFD6D6), Color(0xFF5C1A1A), Color(0xFFFF8A80), Color(0xFFFF5252)),
-    EmotionCard("💧", "슬픔", 2, Color(0xFFD6F0FF), Color(0xFF0A3040), Color(0xFF80D8FF), Color(0xFF40C4FF))
-)
-
-val sampleRecords = listOf(
-    RecentRecordResponse(1, "미안하다는 말 대신 화를 냈어. 그때 참았어야 했는데.", "짜증", "😤", "2025-07-06"),
-    RecentRecordResponse(2, "요즘 아무것도 하기 싫고 그냥 누워만 있고 싶다.", "우울", "🌧", "2025-07-06"),
-    RecentRecordResponse(3, "오늘 괜찮은 하루였다. 작은 것에 감사.", "행복", "☀️", "2025-07-06")
+// ── 감정 컬러 매핑 ────────────────────────────
+val emotionCardStyleMap = mapOf(
+    "행복" to EmotionCard("☀️", "행복", 0, Color(0xFFFFF3C4), Color(0xFF4A3A00), Color(0xFFFFE066), Color(0xFFFFD700)),
+    "우울" to EmotionCard("🌧", "우울", 0, Color(0xFFDAE0F5), Color(0xFF1A2456), Color(0xFF8FA8FF), Color(0xFF3D5AFE)),
+    "외로움" to EmotionCard("🌙", "외로움", 0, Color(0xFFE8DCFF), Color(0xFF2D1F5E), Color(0xFFB39DFF), Color(0xFF7C4DFF)),
+    "짜증" to EmotionCard("😤", "짜증", 0, Color(0xFFFFD6D6), Color(0xFF5C1A1A), Color(0xFFFF8A80), Color(0xFFFF5252)),
+    "슬픔" to EmotionCard("💧", "슬픔", 0, Color(0xFFD6F0FF), Color(0xFF0A3040), Color(0xFF80D8FF), Color(0xFF40C4FF))
 )
 
 // ── HomeScreen ────────────────────────────────
@@ -50,24 +46,38 @@ fun HomeScreen(
     onDarkModeToggle: (Boolean) -> Unit,
     showBottomSheet: Boolean,
     onBottomSheetDismiss: () -> Unit,
-    onEmotionClick: (Int) -> Unit = {}
+    onEmotionClick: (EmotionCardUi) -> Unit = {}
 ) {
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
     val cardBg = if (isDark) DarkSurface else LightSurface
 
+    val viewModel = remember { EmotionViewModel() }
+    val homeState by viewModel.homeState.collectAsState()
+    val submitState by viewModel.submitState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadHomeData()
+    }
+
+    LaunchedEffect(submitState) {
+        if (submitState is RecordSubmitState.Success) {
+            onBottomSheetDismiss()
+            viewModel.resetSubmitState()
+        }
+    }
+
     if (showBottomSheet) {
         AddEmotionBottomSheet(
             isDark = isDark,
             onDismiss = onBottomSheetDismiss,
-            onSubmit = { }
+            onSubmit = { content -> viewModel.createRecord(content) },
+            isLoading = submitState is RecordSubmitState.Loading
         )
     }
 
-    Scaffold(
-        containerColor = bgColor,
-    ) { innerPadding ->
+    Scaffold(containerColor = bgColor) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -89,7 +99,6 @@ fun HomeScreen(
                     color = textColor,
                     letterSpacing = 2.sp
                 )
-                // 다크모드 스위치
                 Box(
                     modifier = Modifier
                         .width(52.dp)
@@ -112,10 +121,7 @@ fun HomeScreen(
                                 .background(Color.White),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (isDark) "🌙" else "☀️",
-                                fontSize = 10.sp
-                            )
+                            Text(text = if (isDark) "🌙" else "☀️", fontSize = 10.sp)
                         }
                     }
                     Switch(
@@ -144,7 +150,8 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "7월 6일 (월)",
+                    text = java.text.SimpleDateFormat("M월 d일 (E)", java.util.Locale.KOREAN)
+                        .format(java.util.Date()),
                     fontSize = 13.sp,
                     color = subTextColor
                 )
@@ -152,40 +159,65 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ── 감정 카드 그리드 ──
-            EmotionGrid(
-                emotions = sampleEmotions,
-                isDark = isDark,
-                onEmotionClick = onEmotionClick
-            )
+            // ── 로딩 / 감정 카드 ──
+            if (homeState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = textColor)
+                }
+            } else if (homeState.emotionCards.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "아직 기록이 없어요\n첫 감정을 남겨보세요 💭",
+                        color = subTextColor,
+                        fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 22.sp
+                    )
+                }
+            } else {
+                EmotionGrid(
+                    emotionCards = homeState.emotionCards,
+                    isDark = isDark,
+                    onEmotionClick = onEmotionClick
+                )
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
 
             // ── 최근 기록 ──
-            Text(
-                text = "최근 기록",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = textColor,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(sampleRecords.size) { index ->
-                    val record = sampleRecords[index]
-                    val emotion = sampleEmotions.find { it.name == record.emotion_name }
-                    RecentRecordCard(
-                        record = record,
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textColor = textColor,
-                        emotion = emotion
-                    )
+            if (homeState.records.isNotEmpty()) {
+                Text(
+                    text = "최근 기록",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = textColor,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(homeState.records.take(10)) { record ->
+                        val style = emotionCardStyleMap[record.category]
+                        RecentRecordCard(
+                            record = record,
+                            isDark = isDark,
+                            cardBg = cardBg,
+                            textColor = textColor,
+                            emotionStyle = style
+                        )
+                    }
                 }
             }
 
@@ -197,50 +229,75 @@ fun HomeScreen(
 // ── 감정 카드 그리드 ──────────────────────────
 @Composable
 fun EmotionGrid(
-    emotions: List<EmotionCard>,
+    emotionCards: List<EmotionCardUi>,
     isDark: Boolean,
-    onEmotionClick: (Int) -> Unit = {}
+    onEmotionClick: (EmotionCardUi) -> Unit = {}
 ) {
+    val firstRow = emotionCards.take(2)
+    val secondRow = emotionCards.drop(2).take(3)
+
     Column(
         modifier = Modifier.padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            emotions.take(2).forEachIndexed { index, emotion ->
+            firstRow.forEach { card ->
+                val style = emotionCardStyleMap[card.name]
                 EmotionCardItem(
-                    emotion = emotion,
+                    name = card.name,
+                    emoji = card.emoji,
+                    count = card.count,
+                    style = style,
                     isDark = isDark,
                     modifier = Modifier
                         .weight(1f)
                         .height(140.dp)
-                        .clickable { onEmotionClick(index) }
+                        .clickable { onEmotionClick(card) }
                 )
             }
+            // 카드가 1개면 빈 공간 채우기
+            if (firstRow.size == 1) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            emotions.drop(2).forEachIndexed { index, emotion ->
-                EmotionCardItem(
-                    emotion = emotion,
-                    isDark = isDark,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(110.dp)
-                        .clickable { onEmotionClick(index + 2) }
-                )
+        if (secondRow.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                secondRow.forEach { card ->
+                    val style = emotionCardStyleMap[card.name]
+                    EmotionCardItem(
+                        name = card.name,
+                        emoji = card.emoji,
+                        count = card.count,
+                        style = style,
+                        isDark = isDark,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(110.dp)
+                            .clickable { onEmotionClick(card) }
+                    )
+                }
+                repeat(3 - secondRow.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }
 }
 
-// ── 감정 카드 아이템 (글래스모피즘) ───────────
+// ── 감정 카드 아이템 ──────────────────────────
 @Composable
 fun EmotionCardItem(
-    emotion: EmotionCard,
+    name: String,
+    emoji: String,
+    count: Int,
+    style: EmotionCard?,
     isDark: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val baseColor = if (isDark) emotion.darkColor else emotion.lightColor
-    val glowColor = if (isDark) emotion.darkGlow else emotion.lightGlow
+    val baseColor = if (isDark) style?.darkColor ?: Color(0xFF2A2A2A)
+    else style?.lightColor ?: Color(0xFFEEEEEE)
+    val glowColor = if (isDark) style?.darkGlow ?: Color(0xFF444444)
+    else style?.lightGlow ?: Color(0xFFDDDDDD)
 
     Box(
         modifier = modifier
@@ -265,7 +322,6 @@ fun EmotionCardItem(
             )
             .padding(14.dp)
     ) {
-        // 글로우 오버레이
         Box(
             modifier = Modifier
                 .size(60.dp)
@@ -281,32 +337,28 @@ fun EmotionCardItem(
                     )
                 )
         )
-
-        // 상단: 이모지 + 개수
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = emotion.emoji, fontSize = 22.sp)
+            Text(text = emoji, fontSize = 22.sp)
             Text(
-                text = "${emotion.count}개",
+                text = "${count}개",
                 fontSize = 11.sp,
                 color = if (isDark) Color(0xFFCCCCCC) else Color(0xFF666666),
                 fontWeight = FontWeight.Medium
             )
         }
-
-        // 하단: 감정명 + 유물 개수
         Column(modifier = Modifier.align(Alignment.BottomStart)) {
             Text(
-                text = emotion.name,
+                text = name,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
             )
             Text(
-                text = "유물 ${emotion.count}개",
+                text = "유물 ${count}개",
                 fontSize = 11.sp,
                 color = if (isDark) Color(0xFFAAAAAA) else Color(0xFF666666)
             )
@@ -317,14 +369,14 @@ fun EmotionCardItem(
 // ── 최근 기록 카드 ────────────────────────────
 @Composable
 fun RecentRecordCard(
-    record: RecentRecordResponse,
+    record: RecordResponse,
     isDark: Boolean,
     cardBg: Color,
     textColor: Color,
-    emotion: EmotionCard?
+    emotionStyle: EmotionCard?
 ) {
-    val tagColor = if (isDark) emotion?.darkColor ?: DarkSurface
-    else emotion?.lightColor ?: LightSurface
+    val tagColor = if (isDark) emotionStyle?.darkColor ?: DarkSurface
+    else emotionStyle?.lightColor ?: LightSurface
 
     Column(
         modifier = Modifier
@@ -354,7 +406,7 @@ fun RecentRecordCard(
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "${record.emotion_emoji} ${record.emotion_name}",
+                text = "${emotionStyle?.emoji ?: ""} ${record.category}",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
@@ -389,7 +441,6 @@ fun HomeBottomBar(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 홈
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
@@ -411,7 +462,6 @@ fun HomeBottomBar(
                 )
             }
 
-            // 유물 등록 (+)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.offset(y = (-8).dp)
@@ -434,14 +484,9 @@ fun HomeBottomBar(
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "유물 등록",
-                    fontSize = 10.sp,
-                    color = subTextColor
-                )
+                Text(text = "유물 등록", fontSize = 10.sp, color = subTextColor)
             }
 
-            // 연대기
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
@@ -455,33 +500,26 @@ fun HomeBottomBar(
                     isPlaying = timelineClicked
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "연대기",
-                    fontSize = 10.sp,
-                    color = subTextColor
-                )
+                Text(text = "연대기", fontSize = 10.sp, color = subTextColor)
             }
         }
     }
 }
 
-// ── Lottie 아이콘 컴포넌트 ────────────────────
+// ── Lottie 아이콘 ─────────────────────────────
 @Composable
 fun LottieIcon(
     resId: Int,
     size: Dp,
     isPlaying: Boolean = false
 ) {
-    val composition by rememberLottieComposition(
-        LottieCompositionSpec.RawRes(resId)
-    )
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(resId))
     val progress by animateLottieCompositionAsState(
         composition = composition,
         isPlaying = isPlaying,
         iterations = 1,
         restartOnPlay = true
     )
-
     LottieAnimation(
         composition = composition,
         progress = { progress },

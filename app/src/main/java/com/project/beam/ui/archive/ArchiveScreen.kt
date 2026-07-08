@@ -26,21 +26,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.project.beam.data.emotion.EmotionCard
-import com.project.beam.data.emotion.RecentRecordResponse
-import com.project.beam.ui.home.HomeBottomBar
-import com.project.beam.ui.home.sampleEmotions
+import com.project.beam.data.emotion.RecordResponse
+import com.project.beam.ui.home.emotionCardStyleMap
 import com.project.beam.ui.theme.*
+import com.project.beam.viewmodel.EmotionViewModel
 import kotlinx.coroutines.delay
 
-// ── 샘플 데이터 ──────────────────────────────
-val archiveSampleRecords = listOf(
-    RecentRecordResponse(1, "미안하다는 말 대신 화를 냈어. 그때 참았어야 했는데.", "짜증", "😤", "2026.07.05"),
-    RecentRecordResponse(2, "요즘 아무것도 하기 싫고 그냥 누워만 있고 싶다.", "우울", "🌧", "2026.07.04"),
-    RecentRecordResponse(3, "정말 고마웠어. 네가 없었다면 버티지 못했을 거야.", "행복", "☀️", "2026.07.04"),
-    RecentRecordResponse(4, "왜 나한테만 그런 말을 했을까. 계속 생각나.", "짜증", "😤", "2026.07.03"),
-    RecentRecordResponse(5, "혼자 있는 게 편한 날이 많아졌다.", "외로움", "🌙", "2026.07.02"),
-    RecentRecordResponse(6, "오늘은 진짜 행복했다. 이유는 모르겠지만.", "행복", "☀️", "2026.07.01"),
+val emotionColors = mapOf(
+    "짜증" to Color(0xFFFF5252),
+    "우울" to Color(0xFF3D5AFE),
+    "슬픔" to Color(0xFF40C4FF),
+    "외로움" to Color(0xFF7C4DFF),
+    "행복" to Color(0xFFFFD700)
 )
 
 data class DailyEmotionData(
@@ -56,30 +53,24 @@ val graphData = listOf(
     DailyEmotionData("7/6",  mapOf("짜증" to 2, "우울" to 0, "슬픔" to 1, "외로움" to 1, "행복" to 2)),
 )
 
-val emotionColors = mapOf(
-    "짜증" to Color(0xFFFF5252),
-    "우울" to Color(0xFF3D5AFE),
-    "슬픔" to Color(0xFF40C4FF),
-    "외로움" to Color(0xFF7C4DFF),
-    "행복" to Color(0xFFFFD700)
-)
-
-// ── ArchiveScreen ─────────────────────────────
 @Composable
 fun ArchiveScreen(
     isDark: Boolean,
-    onDarkModeToggle: (Boolean) -> Unit = {},
-    onHomeClick: () -> Unit = {},
-    onAddClick: () -> Unit = {}
+    onDarkModeToggle: (Boolean) -> Unit = {}
 ) {
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
     val cardBg = if (isDark) DarkSurface else LightSurface
 
-    Scaffold(
-        containerColor = bgColor,
-    ) { innerPadding ->
+    val viewModel = remember { EmotionViewModel() }
+    val homeState by viewModel.homeState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadHomeData()
+    }
+
+    Scaffold(containerColor = bgColor) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -168,34 +159,39 @@ fun ArchiveScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // ── 기록 리스트 (애니메이션) ──
-            items(archiveSampleRecords.size) { index ->
-                val record = archiveSampleRecords[index]
-                val emotion = sampleEmotions.find { it.name == record.emotion_name }
-
-                var visible by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    delay(200L + index * 120L)
-                    visible = true
+            // ── 기록 리스트 ──
+            if (homeState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(color = textColor) }
                 }
-
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(400)) + slideInVertically(
-                        animationSpec = tween(400, easing = EaseOutCubic),
-                        initialOffsetY = { it / 2 }
-                    )
-                ) {
-                    ArchiveRecordItem(
-                        record = record,
-                        emotion = emotion,
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textColor = textColor,
-                        subTextColor = subTextColor
-                    )
+            } else {
+                items(homeState.records.size) { index ->
+                    val record = homeState.records[index]
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        delay(200L + index * 120L)
+                        visible = true
+                    }
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(400)) + slideInVertically(
+                            animationSpec = tween(400, easing = EaseOutCubic),
+                            initialOffsetY = { it / 2 }
+                        )
+                    ) {
+                        ArchiveRecordItem(
+                            record = record,
+                            isDark = isDark,
+                            cardBg = cardBg,
+                            textColor = textColor,
+                            subTextColor = subTextColor
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item { Spacer(modifier = Modifier.height(20.dp)) }
@@ -203,7 +199,6 @@ fun ArchiveScreen(
     }
 }
 
-// ── 감정 라인 차트 ────────────────────────────
 @Composable
 fun EmotionLineChart(
     isDark: Boolean,
@@ -237,7 +232,6 @@ fun EmotionLineChart(
             val chartWidthPx = remember { mutableStateOf(0f) }
             val progress = animationProgress.value
 
-            // 툴팁 + 차트를 Box로 겹치기
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -251,12 +245,10 @@ fun EmotionLineChart(
                                 val w = chartWidthPx.value
                                 if (w == 0f) return@detectTapGestures
                                 val leftPadding = w * 0.05f
-                                val rightPadding = w * 0.05f
-                                val chartW = w - leftPadding - rightPadding
+                                val chartW = w - leftPadding * 2
                                 val segmentWidth = chartW / (graphData.size - 1)
                                 val index = ((offset.x - leftPadding) / segmentWidth)
-                                    .toInt()
-                                    .coerceIn(0, graphData.size - 1)
+                                    .toInt().coerceIn(0, graphData.size - 1)
                                 selectedDateIndex = if (selectedDateIndex == index) null else index
                             }
                         }
@@ -266,25 +258,22 @@ fun EmotionLineChart(
                     val h = size.height
                     val maxVal = 4f
                     val leftPadding = w * 0.05f
-                    val rightPadding = w * 0.05f
-                    val chartW = w - leftPadding - rightPadding
+                    val chartW = w - leftPadding * 2
                     val segmentWidth = chartW / (graphData.size - 1)
                     val paddingBottom = 30f
                     val paddingTop = 10f
                     val chartH = h - paddingBottom - paddingTop
 
-                    // Y축 가이드라인
                     for (i in 0..4) {
                         val y = paddingTop + chartH - (i / maxVal * chartH)
                         drawLine(
                             color = if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
                             start = androidx.compose.ui.geometry.Offset(leftPadding, y),
-                            end = androidx.compose.ui.geometry.Offset(w - rightPadding, y),
+                            end = androidx.compose.ui.geometry.Offset(w - leftPadding, y),
                             strokeWidth = 1f
                         )
                     }
 
-                    // 선택된 날짜 수직선
                     selectedDateIndex?.let { idx ->
                         val x = leftPadding + idx * segmentWidth
                         drawLine(
@@ -292,13 +281,10 @@ fun EmotionLineChart(
                             start = androidx.compose.ui.geometry.Offset(x, paddingTop),
                             end = androidx.compose.ui.geometry.Offset(x, paddingTop + chartH),
                             strokeWidth = 1.5f,
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                                floatArrayOf(8f, 6f)
-                            )
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
                         )
                     }
 
-                    // 각 감정 라인
                     emotions.forEach { emotion ->
                         val color = emotionColors[emotion] ?: Color.Gray
                         val points = graphData.mapIndexed { index, data ->
@@ -307,43 +293,30 @@ fun EmotionLineChart(
                             val y = paddingTop + chartH - (value / maxVal * chartH)
                             androidx.compose.ui.geometry.Offset(x, y)
                         }
-
                         val totalPoints = points.size
                         val animatedFloat = progress * (totalPoints - 1)
                         val fullSegments = animatedFloat.toInt()
                         val partialProgress = animatedFloat - fullSegments
 
                         for (i in 0 until fullSegments.coerceAtMost(totalPoints - 1)) {
-                            drawLine(
-                                color = color,
-                                start = points[i],
-                                end = points[i + 1],
-                                strokeWidth = 3f,
-                                cap = StrokeCap.Round
-                            )
+                            drawLine(color = color, start = points[i], end = points[i + 1], strokeWidth = 3f, cap = StrokeCap.Round)
                         }
-
                         if (fullSegments < totalPoints - 1) {
                             val start = points[fullSegments]
                             val end = points[fullSegments + 1]
-                            val partialEnd = androidx.compose.ui.geometry.Offset(
-                                start.x + (end.x - start.x) * partialProgress,
-                                start.y + (end.y - start.y) * partialProgress
-                            )
                             drawLine(
                                 color = color,
                                 start = start,
-                                end = partialEnd,
-                                strokeWidth = 3f,
-                                cap = StrokeCap.Round
+                                end = androidx.compose.ui.geometry.Offset(
+                                    start.x + (end.x - start.x) * partialProgress,
+                                    start.y + (end.y - start.y) * partialProgress
+                                ),
+                                strokeWidth = 3f, cap = StrokeCap.Round
                             )
                         }
-
                         points.take(fullSegments + 1).forEach { point ->
                             drawCircle(color = color, radius = 4f, center = point)
                         }
-
-                        // 선택된 꼭짓점 강조
                         selectedDateIndex?.let { idx ->
                             if (idx < points.size) {
                                 drawCircle(color = color, radius = 8f, center = points[idx])
@@ -352,7 +325,6 @@ fun EmotionLineChart(
                         }
                     }
 
-                    // X축 날짜 텍스트
                     val paint = android.graphics.Paint().apply {
                         this.color = subTextColor.toArgb()
                         textSize = 26f
@@ -360,17 +332,11 @@ fun EmotionLineChart(
                     }
                     drawIntoCanvas { canvas ->
                         graphData.forEachIndexed { index, data ->
-                            canvas.nativeCanvas.drawText(
-                                data.date,
-                                leftPadding + index * segmentWidth,
-                                h,
-                                paint
-                            )
+                            canvas.nativeCanvas.drawText(data.date, leftPadding + index * segmentWidth, h, paint)
                         }
                     }
                 }
 
-                // 툴팁 오버레이 (클릭한 포인트 옆에)
                 selectedDateIndex?.let { idx ->
                     val data = graphData[idx]
                     val w = chartWidthPx.value
@@ -379,36 +345,18 @@ fun EmotionLineChart(
                         val chartW = w - leftPadding * 2
                         val segmentWidth = chartW / (graphData.size - 1)
                         val xRatio = (leftPadding + idx * segmentWidth) / w
-                        val tooltipOnLeft = xRatio > 0.5f
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth()
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
                             Box(
                                 modifier = Modifier
-                                    .align(if (tooltipOnLeft) Alignment.TopStart else Alignment.TopEnd)
-                                    .padding(
-                                        start = if (!tooltipOnLeft) 0.dp else 0.dp,
-                                        top = 4.dp
-                                    )
+                                    .align(if (xRatio > 0.5f) Alignment.TopStart else Alignment.TopEnd)
+                                    .padding(top = 4.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (isDark) Color(0xFF2A2A2A) else Color(0xFFF5F5F5))
-                                    .border(
-                                        1.dp,
-                                        if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0),
-                                        RoundedCornerShape(10.dp)
-                                    )
+                                    .border(1.dp, if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0), RoundedCornerShape(10.dp))
                                     .padding(horizontal = 12.dp, vertical = 8.dp)
                             ) {
                                 Column {
-                                    Text(
-                                        text = data.date,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textColor
-                                    )
+                                    Text(text = data.date, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     emotions.forEach { emotion ->
                                         Text(
@@ -427,7 +375,6 @@ fun EmotionLineChart(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 범례
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
@@ -449,18 +396,17 @@ fun EmotionLineChart(
     }
 }
 
-// ── 기록 아이템 ───────────────────────────────
 @Composable
 fun ArchiveRecordItem(
-    record: RecentRecordResponse,
-    emotion: EmotionCard?,
+    record: RecordResponse,
     isDark: Boolean,
     cardBg: Color,
     textColor: Color,
     subTextColor: Color
 ) {
-    val tagColor = if (isDark) emotion?.darkColor ?: DarkSurface
-    else emotion?.lightColor ?: LightSurface
+    val style = emotionCardStyleMap[record.category]
+    val tagColor = if (isDark) style?.darkColor ?: DarkSurface
+    else style?.lightColor ?: LightSurface
 
     Column(
         modifier = Modifier
@@ -468,19 +414,10 @@ fun ArchiveRecordItem(
             .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(cardBg)
-            .border(
-                1.dp,
-                if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
-                RoundedCornerShape(16.dp)
-            )
+            .border(1.dp, if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE), RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
-        Text(
-            text = record.content,
-            fontSize = 14.sp,
-            color = textColor,
-            lineHeight = 20.sp
-        )
+        Text(text = record.content, fontSize = 14.sp, color = textColor, lineHeight = 20.sp)
         Spacer(modifier = Modifier.height(10.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -494,7 +431,7 @@ fun ArchiveRecordItem(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${record.emotion_emoji} ${record.emotion_name}",
+                    text = "${style?.emoji ?: ""} ${record.category}",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
@@ -505,7 +442,6 @@ fun ArchiveRecordItem(
     }
 }
 
-// ── Preview ───────────────────────────────────
 @Preview(showBackground = true, name = "Archive Light")
 @Composable
 fun ArchiveScreenLightPreview() {

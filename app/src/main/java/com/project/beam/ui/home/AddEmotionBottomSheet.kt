@@ -21,7 +21,8 @@ import com.project.beam.ui.theme.*
 fun AddEmotionBottomSheet(
     isDark: Boolean,
     onDismiss: () -> Unit,
-    onSubmit: (String) -> Unit = {}
+    onSubmit: (String) -> Unit = {},
+    isLoading: Boolean = false
 ) {
     val bgColor = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
     val textColor = if (isDark) DarkText else LightText
@@ -141,12 +142,8 @@ fun AddEmotionBottomSheet(
 
             // ── 기록하기 버튼 ──
             Button(
-                onClick = {
-                    if (isEnabled) {
-                        onSubmit(text)
-                        onDismiss()
-                    }
-                },
+                onClick = { if (text.isNotBlank() && !isLoading) onSubmit(text) },
+                enabled = text.isNotBlank() && !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -160,6 +157,15 @@ fun AddEmotionBottomSheet(
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = if (isDark) DarkBackground else LightBackground,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("기록하기")
+                }
                 Text(
                     text = "기록하기",
                     fontSize = 15.sp,

@@ -1,8 +1,8 @@
 package com.project.beam.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,26 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.project.beam.data.emotion.EmotionCard
-import com.project.beam.data.emotion.EmotionRecordResponse
+import com.project.beam.data.emotion.RecordResponse
 import com.project.beam.ui.theme.*
-
-// ── 샘플 데이터 ──────────────────────────────
-val sampleEmotionRecords = listOf(
-    EmotionRecordResponse(1, "정말 고마웠어. 네가 없었다면 버티지 못했을 거야.", "행복", "☀️", "2026.07.04"),
-    EmotionRecordResponse(2, "처음으로 혼자 영화를 봤다. 생각보다 괜찮았다.", "행복", "☀️", "2026.06.27"),
-    EmotionRecordResponse(3, "친구랑 오래 웃었더니 기분이 한결 나아졌다.", "행복", "☀️", "2026.06.21"),
-    EmotionRecordResponse(4, "오늘은 진짜 행복했다. 이유는 모르겠지만.", "행복", "☀️", "2026.06.11")
-)
+import com.project.beam.viewmodel.EmotionCardUi
 
 // ── EmotionDetailScreen ───────────────────────
 @Composable
 fun EmotionDetailScreen(
-    emotion: EmotionCard,
-    records: List<EmotionRecordResponse> = sampleEmotionRecords,
+    emotionCardUi: EmotionCardUi,
     isDark: Boolean,
     onDarkModeToggle: (Boolean) -> Unit = {},
     onBackClick: () -> Unit = {}
@@ -45,11 +35,11 @@ fun EmotionDetailScreen(
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
     val cardBg = if (isDark) DarkSurface else LightSurface
-    val tagColor = if (isDark) emotion.darkColor else emotion.lightColor
+    val style = emotionCardStyleMap[emotionCardUi.name]
+    val tagColor = if (isDark) style?.darkColor ?: DarkSurface
+    else style?.lightColor ?: LightSurface
 
-    Scaffold(
-        containerColor = bgColor,
-    ) { innerPadding ->
+    Scaffold(containerColor = bgColor) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -75,12 +65,38 @@ fun EmotionDetailScreen(
                         .width(52.dp)
                         .height(28.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0)),
-                    contentAlignment = Alignment.Center
+                        .background(if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0))
+                        .border(1.dp, if (isDark) Color(0xFF555555) else Color(0xFFCCCCCC), CircleShape)
                 ) {
-                    Text(
-                        text = if (isDark) "🌙" else "☀️",
-                        fontSize = 14.sp
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp),
+                        horizontalArrangement = if (isDark) Arrangement.End else Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = if (isDark) "🌙" else "☀️", fontSize = 10.sp)
+                        }
+                    }
+                    Switch(
+                        checked = isDark,
+                        onCheckedChange = { onDarkModeToggle(it) },
+                        modifier = Modifier.fillMaxSize(),
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Transparent,
+                            uncheckedThumbColor = Color.Transparent,
+                            checkedTrackColor = Color.Transparent,
+                            uncheckedTrackColor = Color.Transparent,
+                            checkedBorderColor = Color.Transparent,
+                            uncheckedBorderColor = Color.Transparent
+                        )
                     )
                 }
             }
@@ -107,23 +123,14 @@ fun EmotionDetailScreen(
                         modifier = Modifier.size(14.dp)
                     )
                 }
-
                 Spacer(modifier = Modifier.width(12.dp))
-
                 Column {
-                    Text(
-                        text = "감정 기록",
-                        fontSize = 12.sp,
-                        color = subTextColor
-                    )
+                    Text(text = "감정 기록", fontSize = 12.sp, color = subTextColor)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = emotion.emoji,
-                            fontSize = 20.sp
-                        )
+                        Text(text = emotionCardUi.emoji, fontSize = 20.sp)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = emotion.name,
+                            text = emotionCardUi.name,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = textColor
@@ -133,19 +140,34 @@ fun EmotionDetailScreen(
             }
 
             // ── 기록 리스트 ──
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(records) { record ->
-                    EmotionRecordItem(
-                        record = record,
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textColor = textColor,
-                        subTextColor = subTextColor,
-                        tagColor = tagColor
+            if (emotionCardUi.records.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "아직 기록이 없어요",
+                        color = subTextColor,
+                        fontSize = 14.sp
                     )
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(emotionCardUi.records) { record ->
+                        EmotionRecordItem(
+                            record = record,
+                            isDark = isDark,
+                            cardBg = cardBg,
+                            textColor = textColor,
+                            subTextColor = subTextColor,
+                            tagColor = tagColor,
+                            emoji = emotionCardUi.emoji
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
             }
         }
@@ -155,18 +177,24 @@ fun EmotionDetailScreen(
 // ── 기록 아이템 카드 ──────────────────────────
 @Composable
 fun EmotionRecordItem(
-    record: EmotionRecordResponse,
+    record: RecordResponse,
     isDark: Boolean,
     cardBg: Color,
     textColor: Color,
     subTextColor: Color,
-    tagColor: Color
+    tagColor: Color,
+    emoji: String
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(cardBg)
+            .border(
+                1.dp,
+                if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
+                RoundedCornerShape(16.dp)
+            )
             .padding(16.dp)
     ) {
         Text(
@@ -175,9 +203,7 @@ fun EmotionRecordItem(
             color = textColor,
             lineHeight = 22.sp
         )
-
         Spacer(modifier = Modifier.height(12.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -190,13 +216,12 @@ fun EmotionRecordItem(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${record.emotion_emoji} ${record.emotion_name}",
+                    text = "$emoji ${record.category}",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
                 )
             }
-
             Text(
                 text = record.created_at,
                 fontSize = 11.sp,

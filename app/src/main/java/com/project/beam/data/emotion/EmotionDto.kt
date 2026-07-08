@@ -13,33 +13,26 @@ data class EmotionCard(
     val darkGlow: Color
 )
 
-// 요청 데이터
-data class EmotionRequest(
-    val name: String,
-    val emoji: String,
+// 요청
+data class RecordCreateRequest(
     val content: String
 )
 
-// 응답 데이터
-data class EmotionResponse(
+// 응답
+data class RecordResponse(
     val id: Int,
-    val name: String,
-    val emoji: String,
+    val content: String,
+    val category: String,
+    val created_at: String
+)
+
+// 월별 통계
+data class EmotionStat(
+    val category: String,
     val count: Int
 )
 
-data class RecentRecordResponse(
-    val id: Int,
-    val content: String,
-    val emotion_name: String,
-    val emotion_emoji: String,
-    val created_at: String
-)
-
-data class EmotionRecordResponse(
-    val id: Int,
-    val content: String,
-    val emotion_name: String,
-    val emotion_emoji: String,
-    val created_at: String
+data class MonthlyEmotionResponse(
+    val month: String,
+    val emotions: List<EmotionStat>
 )
