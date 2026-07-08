@@ -21,6 +21,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.project.beam.ui.theme.*
 import com.project.beam.R
+import android.app.Activity
+import android.util.Log
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.project.beam.data.core.Constants
+import com.project.beam.viewmodel.AuthState
+import com.project.beam.viewmodel.AuthViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -34,6 +46,47 @@ fun LoginScreen(
     val btnBorder    = if (isDark) GoogleBtnBorderDark  else GoogleBtnBorderLight
     val logoBg       = if (isDark) LogoBgDark           else LogoBgLight
     val logoText     = if (isDark) LogoTextDark         else LogoTextLight
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val authViewModel = remember { AuthViewModel(context) }
+    val authState by authViewModel.authState.collectAsState()
+
+    // 로그인 성공 시 화면 이동
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Success) {
+            onGoogleSignInClick()
+        }
+    }
+
+    // 구글 로그인 함수
+    fun startGoogleLogin() {
+        coroutineScope.launch {
+            try {
+                val credentialManager = CredentialManager.create(context)
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(Constants.WEB_CLIENT_ID)
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val result = credentialManager.getCredential(context as Activity, request)
+                val credential = result.credential
+
+                if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val idToken = googleIdTokenCredential.idToken
+                    Log.d("GoogleLogin", "idToken: $idToken")
+                    authViewModel.googleLogin(idToken)
+                }
+            } catch (e: Exception) {
+                Log.e("GoogleLogin", "로그인 실패: ${e.message}")
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -70,7 +123,7 @@ fun LoginScreen(
 
             // ── 구글 로그인 버튼 ──
             Button(
-                onClick = onGoogleSignInClick,
+                onClick = { startGoogleLogin() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
