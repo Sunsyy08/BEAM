@@ -6,6 +6,8 @@ import com.project.beam.data.emotion.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import android.content.Context
+import com.project.beam.data.slogan.SloganRepository
 
 data class HomeUiState(
     val records: List<RecordResponse> = emptyList(),
@@ -40,6 +42,9 @@ class EmotionViewModel : ViewModel() {
 
     private val _monthlyStats = MutableStateFlow<List<MonthlyEmotionResponse>>(emptyList())
     val monthlyStats: StateFlow<List<MonthlyEmotionResponse>> = _monthlyStats
+
+    private val _slogan = MutableStateFlow<String?>(null)
+    val slogan: StateFlow<String?> = _slogan
 
     // 감정 이모지 매핑
     private val emotionEmojiMap = mapOf(
@@ -102,6 +107,16 @@ class EmotionViewModel : ViewModel() {
             repository.getMonthlyStats().fold(
                 onSuccess = { _monthlyStats.value = it },
                 onFailure = { }
+            )
+        }
+    }
+
+    fun loadSlogan(context: Context) {
+        viewModelScope.launch {
+            val repository = SloganRepository(context)
+            repository.getTodaySlogan().fold(
+                onSuccess = { _slogan.value = it },
+                onFailure = { _slogan.value = null }
             )
         }
     }

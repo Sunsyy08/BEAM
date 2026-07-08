@@ -113,6 +113,7 @@ fun BeamNavGraph(
                     onDarkModeToggle = { isDark = it },
                     showBottomSheet = showBottomSheet,
                     onBottomSheetDismiss = { showBottomSheet = false },
+                    onSloganClick = { showBottomSheet = true },
                     onEmotionClick = { card ->
                         selectedEmotionCard = card
                         navController.navigate(Screen.EmotionDetail.route)

@@ -2,6 +2,7 @@ package com.project.beam.data.core
 
 import com.project.beam.data.auth.AuthApi
 import com.project.beam.data.emotion.EmotionApi
+import com.project.beam.data.slogan.SloganApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -27,4 +28,7 @@ object ApiClient {
 
     val authApi: AuthApi = retrofit.create(AuthApi::class.java)
     val emotionApi: EmotionApi = retrofit.create(EmotionApi::class.java)
+
+    val sloganApi: SloganApi = retrofit.create(SloganApi::class.java)
+
 }

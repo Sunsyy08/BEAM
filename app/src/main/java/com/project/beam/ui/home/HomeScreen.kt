@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -46,19 +47,25 @@ fun HomeScreen(
     onDarkModeToggle: (Boolean) -> Unit,
     showBottomSheet: Boolean,
     onBottomSheetDismiss: () -> Unit,
+    onSloganClick: () -> Unit = {},
     onEmotionClick: (EmotionCardUi) -> Unit = {}
 ) {
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
     val cardBg = if (isDark) DarkSurface else LightSurface
+    var selectedSlogan by remember { mutableStateOf<String?>(null) }
 
     val viewModel = remember { EmotionViewModel() }
     val homeState by viewModel.homeState.collectAsState()
     val submitState by viewModel.submitState.collectAsState()
 
+    val context = LocalContext.current
+    val slogan by viewModel.slogan.collectAsState()
+
     LaunchedEffect(Unit) {
         viewModel.loadHomeData()
+        viewModel.loadSlogan(context)
     }
 
     LaunchedEffect(submitState) {
@@ -71,9 +78,13 @@ fun HomeScreen(
     if (showBottomSheet) {
         AddEmotionBottomSheet(
             isDark = isDark,
-            onDismiss = onBottomSheetDismiss,
+            onDismiss = {
+                onBottomSheetDismiss()
+                selectedSlogan = null
+            },
             onSubmit = { content -> viewModel.createRecord(content) },
-            isLoading = submitState is RecordSubmitState.Loading
+            isLoading = submitState is RecordSubmitState.Loading,
+            hint = selectedSlogan
         )
     }
 
@@ -155,6 +166,60 @@ fun HomeScreen(
                     fontSize = 13.sp,
                     color = subTextColor
                 )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ── 오늘의 질문 카드 ──
+            slogan?.let { question ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = if (isDark)
+                                    listOf(Color(0xFF2A2A2A), Color(0xFF1E1E1E))
+                                else
+                                    listOf(Color(0xFFF5F0FF), Color(0xFFEDE8FF))
+                            )
+                        )
+                        .border(
+                            1.dp,
+                            if (isDark) Color(0xFF3A3A3A) else Color(0xFFD4C8FF),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clickable {
+                            selectedSlogan = question
+                            onSloganClick()
+                        }
+                        .padding(16.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "오늘의 질문 ✨",
+                            fontSize = 11.sp,
+                            color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = question,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = textColor,
+                            lineHeight = 22.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "여기에 남기기 →",
+                            fontSize = 11.sp,
+                            color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))

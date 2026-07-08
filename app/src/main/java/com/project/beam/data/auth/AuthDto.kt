@@ -13,3 +13,7 @@ data class UserResponse(
     val email: String,
     val name: String
 )
+
+data class SloganResponse(
+    val slogan: String
+)

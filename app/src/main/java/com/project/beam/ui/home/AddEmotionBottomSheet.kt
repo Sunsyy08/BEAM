@@ -25,7 +25,8 @@ fun AddEmotionBottomSheet(
     isDark: Boolean,
     onDismiss: () -> Unit,
     onSubmit: (String) -> Unit = {},
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    hint: String? = null
 ) {
     val bgColor = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
     val textColor = if (isDark) DarkText else LightText
@@ -98,6 +99,24 @@ fun AddEmotionBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
+            hint?.let {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isDark) Color(0xFF2A2A2A) else Color(0xFFF5F0FF))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "💬 $it",
+                        fontSize = 13.sp,
+                        color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF),
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             // ── 텍스트 입력 ──
             Box(
