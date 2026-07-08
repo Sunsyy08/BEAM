@@ -38,6 +38,9 @@ class EmotionViewModel : ViewModel() {
     private val _submitState = MutableStateFlow<RecordSubmitState>(RecordSubmitState.Idle)
     val submitState: StateFlow<RecordSubmitState> = _submitState
 
+    private val _monthlyStats = MutableStateFlow<List<MonthlyEmotionResponse>>(emptyList())
+    val monthlyStats: StateFlow<List<MonthlyEmotionResponse>> = _monthlyStats
+
     // 감정 이모지 매핑
     private val emotionEmojiMap = mapOf(
         "행복" to "☀️",
@@ -90,6 +93,15 @@ class EmotionViewModel : ViewModel() {
                 onFailure = {
                     _submitState.value = RecordSubmitState.Error(it.message ?: "등록 실패")
                 }
+            )
+        }
+    }
+
+    fun loadMonthlyStats() {
+        viewModelScope.launch {
+            repository.getMonthlyStats().fold(
+                onSuccess = { _monthlyStats.value = it },
+                onFailure = { }
             )
         }
     }

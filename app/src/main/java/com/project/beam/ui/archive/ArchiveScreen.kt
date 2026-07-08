@@ -31,6 +31,7 @@ import com.project.beam.ui.home.emotionCardStyleMap
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionViewModel
 import kotlinx.coroutines.delay
+import java.time.LocalDate
 
 val emotionColors = mapOf(
     "짜증" to Color(0xFFFF5252),
@@ -40,17 +41,9 @@ val emotionColors = mapOf(
     "행복" to Color(0xFFFFD700)
 )
 
-data class DailyEmotionData(
+data class GraphPoint(
     val date: String,
     val counts: Map<String, Int>
-)
-
-val graphData = listOf(
-    DailyEmotionData("6/7",  mapOf("짜증" to 1, "우울" to 0, "슬픔" to 0, "외로움" to 0, "행복" to 1)),
-    DailyEmotionData("6/14", mapOf("짜증" to 2, "우울" to 1, "슬픔" to 1, "외로움" to 0, "행복" to 2)),
-    DailyEmotionData("6/21", mapOf("짜증" to 1, "우울" to 2, "슬픔" to 0, "외로움" to 1, "행복" to 3)),
-    DailyEmotionData("6/28", mapOf("짜증" to 3, "우울" to 1, "슬픔" to 2, "외로움" to 2, "행복" to 1)),
-    DailyEmotionData("7/6",  mapOf("짜증" to 2, "우울" to 0, "슬픔" to 1, "외로움" to 1, "행복" to 2)),
 )
 
 @Composable
@@ -154,7 +147,8 @@ fun ArchiveScreen(
                     isDark = isDark,
                     cardBg = cardBg,
                     textColor = textColor,
-                    subTextColor = subTextColor
+                    subTextColor = subTextColor,
+                    records = homeState.records
                 )
                 Spacer(modifier = Modifier.height(20.dp))
             }
@@ -163,7 +157,9 @@ fun ArchiveScreen(
             if (homeState.isLoading) {
                 item {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(40.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(40.dp),
                         contentAlignment = Alignment.Center
                     ) { CircularProgressIndicator(color = textColor) }
                 }
@@ -204,12 +200,34 @@ fun EmotionLineChart(
     isDark: Boolean,
     cardBg: Color,
     textColor: Color,
-    subTextColor: Color
+    subTextColor: Color,
+    records: List<RecordResponse>
 ) {
     var selectedDateIndex by remember { mutableStateOf<Int?>(null) }
     val animationProgress = remember { Animatable(0f) }
 
-    LaunchedEffect(Unit) {
+    // 일별 집계
+    val graphPoints = remember(records) {
+        val grouped = records.groupBy { it.created_at.take(10) }
+        val dailyMap = grouped.mapValues { (_, dayRecords) ->
+            dayRecords.groupBy { it.category }.mapValues { it.value.size }
+        }
+        val today = LocalDate.now()
+        val dates = (29 downTo 0).map { today.minusDays(it.toLong()) }
+        val filteredDates = dates.filter { date ->
+            dailyMap.containsKey(date.toString()) || date == today
+        }
+        filteredDates.map { date ->
+            val counts = dailyMap[date.toString()] ?: emptyMap()
+            GraphPoint(
+                date = "${date.monthValue}/${date.dayOfMonth}",
+                counts = counts
+            )
+        }
+    }
+
+    LaunchedEffect(graphPoints) {
+        animationProgress.snapTo(0f)
         animationProgress.animateTo(
             targetValue = 1f,
             animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
@@ -228,143 +246,254 @@ fun EmotionLineChart(
             .padding(16.dp)
     ) {
         Column {
-            val chartHeight = 180.dp
-            val chartWidthPx = remember { mutableStateOf(0f) }
-            val progress = animationProgress.value
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(chartHeight)
-            ) {
-                Canvas(
+            if (graphPoints.isEmpty()) {
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures { offset ->
-                                val w = chartWidthPx.value
-                                if (w == 0f) return@detectTapGestures
-                                val leftPadding = w * 0.05f
-                                val chartW = w - leftPadding * 2
-                                val segmentWidth = chartW / (graphData.size - 1)
-                                val index = ((offset.x - leftPadding) / segmentWidth)
-                                    .toInt().coerceIn(0, graphData.size - 1)
-                                selectedDateIndex = if (selectedDateIndex == index) null else index
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "아직 데이터가 없어요", color = subTextColor, fontSize = 13.sp)
+                }
+            } else {
+                val chartHeight = 200.dp
+                val chartWidthPx = remember { mutableStateOf(0f) }
+                val progress = animationProgress.value
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(chartHeight)
+                ) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures { offset ->
+                                    val w = chartWidthPx.value
+                                    if (w == 0f) return@detectTapGestures
+                                    val leftPadding = w * 0.10f
+                                    val rightPadding = w * 0.05f
+                                    val chartW = w - leftPadding - rightPadding
+
+                                    if (graphPoints.size == 1) {
+                                        selectedDateIndex = if (selectedDateIndex == 0) null else 0
+                                        return@detectTapGestures
+                                    }
+
+                                    val segmentWidth = chartW / (graphPoints.size - 1)
+                                    val index = ((offset.x - leftPadding) / segmentWidth)
+                                        .toInt().coerceIn(0, graphPoints.size - 1)
+                                    selectedDateIndex = if (selectedDateIndex == index) null else index
+                                }
+                            }
+                            .onGloballyPositioned { chartWidthPx.value = it.size.width.toFloat() }
+                    ) {
+                        val w = size.width
+                        val h = size.height
+                        val leftPadding = w * 0.10f
+                        val rightPadding = w * 0.05f
+                        val chartW = w - leftPadding - rightPadding
+                        val paddingBottom = 36f
+                        val paddingTop = 16f
+                        val chartH = h - paddingBottom - paddingTop
+
+                        // Y축 0~5 고정
+                        val maxVal = 5f
+                        val yStepCount = 5
+
+                        val segmentWidth = if (graphPoints.size > 1)
+                            chartW / (graphPoints.size - 1) else chartW / 2f
+
+                        val yLabelPaint = android.graphics.Paint().apply {
+                            this.color = subTextColor.toArgb()
+                            textSize = 24f
+                            textAlign = android.graphics.Paint.Align.RIGHT
+                        }
+                        val xLabelPaint = android.graphics.Paint().apply {
+                            this.color = subTextColor.toArgb()
+                            textSize = 24f
+                            textAlign = android.graphics.Paint.Align.CENTER
+                        }
+
+                        // Y축 가이드라인 + 숫자 (0~5)
+                        for (i in 0..yStepCount) {
+                            val y = paddingTop + chartH - (i.toFloat() / yStepCount * chartH)
+                            drawLine(
+                                color = if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
+                                start = androidx.compose.ui.geometry.Offset(leftPadding, y),
+                                end = androidx.compose.ui.geometry.Offset(w - rightPadding, y),
+                                strokeWidth = 1f
+                            )
+                            drawIntoCanvas { canvas ->
+                                canvas.nativeCanvas.drawText(
+                                    i.toString(),
+                                    leftPadding - 8f,
+                                    y + 8f,
+                                    yLabelPaint
+                                )
                             }
                         }
-                        .onGloballyPositioned { chartWidthPx.value = it.size.width.toFloat() }
-                ) {
-                    val w = size.width
-                    val h = size.height
-                    val maxVal = 4f
-                    val leftPadding = w * 0.05f
-                    val chartW = w - leftPadding * 2
-                    val segmentWidth = chartW / (graphData.size - 1)
-                    val paddingBottom = 30f
-                    val paddingTop = 10f
-                    val chartH = h - paddingBottom - paddingTop
 
-                    for (i in 0..4) {
-                        val y = paddingTop + chartH - (i / maxVal * chartH)
+                        // Y축 선
                         drawLine(
-                            color = if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
-                            start = androidx.compose.ui.geometry.Offset(leftPadding, y),
-                            end = androidx.compose.ui.geometry.Offset(w - leftPadding, y),
-                            strokeWidth = 1f
+                            color = if (isDark) Color(0xFF3A3A3A) else Color(0xFFDDDDDD),
+                            start = androidx.compose.ui.geometry.Offset(leftPadding, paddingTop),
+                            end = androidx.compose.ui.geometry.Offset(leftPadding, paddingTop + chartH),
+                            strokeWidth = 1.5f
                         )
-                    }
 
-                    selectedDateIndex?.let { idx ->
-                        val x = leftPadding + idx * segmentWidth
-                        drawLine(
-                            color = if (isDark) Color(0xFF555555) else Color(0xFFCCCCCC),
-                            start = androidx.compose.ui.geometry.Offset(x, paddingTop),
-                            end = androidx.compose.ui.geometry.Offset(x, paddingTop + chartH),
-                            strokeWidth = 1.5f,
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
-                        )
-                    }
-
-                    emotions.forEach { emotion ->
-                        val color = emotionColors[emotion] ?: Color.Gray
-                        val points = graphData.mapIndexed { index, data ->
-                            val x = leftPadding + index * segmentWidth
-                            val value = (data.counts[emotion] ?: 0).toFloat()
-                            val y = paddingTop + chartH - (value / maxVal * chartH)
-                            androidx.compose.ui.geometry.Offset(x, y)
-                        }
-                        val totalPoints = points.size
-                        val animatedFloat = progress * (totalPoints - 1)
-                        val fullSegments = animatedFloat.toInt()
-                        val partialProgress = animatedFloat - fullSegments
-
-                        for (i in 0 until fullSegments.coerceAtMost(totalPoints - 1)) {
-                            drawLine(color = color, start = points[i], end = points[i + 1], strokeWidth = 3f, cap = StrokeCap.Round)
-                        }
-                        if (fullSegments < totalPoints - 1) {
-                            val start = points[fullSegments]
-                            val end = points[fullSegments + 1]
+                        // 선택된 날짜 수직선
+                        selectedDateIndex?.let { idx ->
+                            val x = if (graphPoints.size == 1) leftPadding + chartW / 2f
+                            else leftPadding + idx * segmentWidth
                             drawLine(
-                                color = color,
-                                start = start,
-                                end = androidx.compose.ui.geometry.Offset(
-                                    start.x + (end.x - start.x) * partialProgress,
-                                    start.y + (end.y - start.y) * partialProgress
-                                ),
-                                strokeWidth = 3f, cap = StrokeCap.Round
+                                color = if (isDark) Color(0xFF555555) else Color(0xFFCCCCCC),
+                                start = androidx.compose.ui.geometry.Offset(x, paddingTop),
+                                end = androidx.compose.ui.geometry.Offset(x, paddingTop + chartH),
+                                strokeWidth = 1.5f,
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
                             )
                         }
-                        points.take(fullSegments + 1).forEach { point ->
-                            drawCircle(color = color, radius = 4f, center = point)
+
+                        // 각 감정 라인
+                        emotions.forEach { emotion ->
+                            val color = emotionColors[emotion] ?: Color.Gray
+                            val points = graphPoints.mapIndexed { index, data ->
+                                val x = if (graphPoints.size == 1) leftPadding + chartW / 2f
+                                else leftPadding + index * segmentWidth
+                                val value = (data.counts[emotion] ?: 0).toFloat()
+                                val y = paddingTop + chartH - (value / maxVal * chartH)
+                                androidx.compose.ui.geometry.Offset(x, y)
+                            }
+
+                            if (points.size == 1) {
+                                val value = graphPoints[0].counts[emotion] ?: 0
+                                if (value > 0) {
+                                    drawCircle(color = color, radius = 6f, center = points[0])
+                                }
+                                selectedDateIndex?.let {
+                                    if (value > 0) {
+                                        drawCircle(color = color, radius = 9f, center = points[0])
+                                        drawCircle(color = Color.White, radius = 4f, center = points[0])
+                                    }
+                                }
+                                return@forEach
+                            }
+
+                            val totalPoints = points.size
+                            val animatedFloat = progress * (totalPoints - 1)
+                            val fullSegments = animatedFloat.toInt()
+                            val partialProgress = animatedFloat - fullSegments
+
+                            for (i in 0 until fullSegments.coerceAtMost(totalPoints - 1)) {
+                                drawLine(
+                                    color = color,
+                                    start = points[i],
+                                    end = points[i + 1],
+                                    strokeWidth = 3f,
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                            if (fullSegments < totalPoints - 1) {
+                                val start = points[fullSegments]
+                                val end = points[fullSegments + 1]
+                                drawLine(
+                                    color = color,
+                                    start = start,
+                                    end = androidx.compose.ui.geometry.Offset(
+                                        start.x + (end.x - start.x) * partialProgress,
+                                        start.y + (end.y - start.y) * partialProgress
+                                    ),
+                                    strokeWidth = 3f,
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                            points.take(fullSegments + 1).forEach { point ->
+                                val pointIndex = points.indexOf(point)
+                                val value = graphPoints.getOrNull(pointIndex)?.counts?.get(emotion) ?: 0
+                                if (value > 0) {
+                                    drawCircle(color = color, radius = 4f, center = point)
+                                }
+                            }
+                            selectedDateIndex?.let { idx ->
+                                if (idx < points.size) {
+                                    val value = graphPoints[idx].counts[emotion] ?: 0
+                                    if (value > 0) {
+                                        drawCircle(color = color, radius = 8f, center = points[idx])
+                                        drawCircle(color = Color.White, radius = 3.5f, center = points[idx])
+                                    }
+                                }
+                            }
                         }
-                        selectedDateIndex?.let { idx ->
-                            if (idx < points.size) {
-                                drawCircle(color = color, radius = 8f, center = points[idx])
-                                drawCircle(color = Color.White, radius = 3.5f, center = points[idx])
+
+                        // X축 날짜 (포인트가 많으면 일부만 표시)
+                        val showEvery = when {
+                            graphPoints.size <= 7 -> 1
+                            graphPoints.size <= 14 -> 2
+                            else -> 3
+                        }
+
+                        drawIntoCanvas { canvas ->
+                            graphPoints.forEachIndexed { index, data ->
+                                if (index % showEvery == 0 || index == graphPoints.size - 1) {
+                                    val x = if (graphPoints.size == 1) leftPadding + chartW / 2f
+                                    else leftPadding + index * segmentWidth
+                                    canvas.nativeCanvas.drawText(
+                                        data.date,
+                                        x,
+                                        h - 4f,
+                                        xLabelPaint
+                                    )
+                                }
                             }
                         }
                     }
 
-                    val paint = android.graphics.Paint().apply {
-                        this.color = subTextColor.toArgb()
-                        textSize = 26f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                    }
-                    drawIntoCanvas { canvas ->
-                        graphData.forEachIndexed { index, data ->
-                            canvas.nativeCanvas.drawText(data.date, leftPadding + index * segmentWidth, h, paint)
-                        }
-                    }
-                }
+                    // 툴팁
+                    selectedDateIndex?.let { idx ->
+                        val data = graphPoints.getOrNull(idx) ?: return@let
+                        val w = chartWidthPx.value
+                        if (w > 0f) {
+                            val leftPadding = w * 0.10f
+                            val rightPadding = w * 0.05f
+                            val chartW = w - leftPadding - rightPadding
+                            val segmentWidth = if (graphPoints.size > 1)
+                                chartW / (graphPoints.size - 1) else chartW / 2f
+                            val x = if (graphPoints.size == 1) leftPadding + chartW / 2f
+                            else leftPadding + idx * segmentWidth
+                            val xRatio = x / w
 
-                selectedDateIndex?.let { idx ->
-                    val data = graphData[idx]
-                    val w = chartWidthPx.value
-                    if (w > 0f) {
-                        val leftPadding = w * 0.05f
-                        val chartW = w - leftPadding * 2
-                        val segmentWidth = chartW / (graphData.size - 1)
-                        val xRatio = (leftPadding + idx * segmentWidth) / w
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Box(
-                                modifier = Modifier
-                                    .align(if (xRatio > 0.5f) Alignment.TopStart else Alignment.TopEnd)
-                                    .padding(top = 4.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isDark) Color(0xFF2A2A2A) else Color(0xFFF5F5F5))
-                                    .border(1.dp, if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0), RoundedCornerShape(10.dp))
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Column {
-                                    Text(text = data.date, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    emotions.forEach { emotion ->
-                                        Text(
-                                            text = "$emotion : ${data.counts[emotion] ?: 0}",
-                                            fontSize = 11.sp,
-                                            color = emotionColors[emotion] ?: subTextColor,
-                                            modifier = Modifier.padding(vertical = 1.dp)
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(if (xRatio > 0.5f) Alignment.TopStart else Alignment.TopEnd)
+                                        .padding(top = 4.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isDark) Color(0xFF2A2A2A) else Color(0xFFF5F5F5))
+                                        .border(
+                                            1.dp,
+                                            if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0),
+                                            RoundedCornerShape(10.dp)
                                         )
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = data.date,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textColor
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        emotions.forEach { emotion ->
+                                            Text(
+                                                text = "$emotion : ${data.counts[emotion] ?: 0}",
+                                                fontSize = 11.sp,
+                                                color = emotionColors[emotion] ?: subTextColor,
+                                                modifier = Modifier.padding(vertical = 1.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -375,6 +504,7 @@ fun EmotionLineChart(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // 범례
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
@@ -408,6 +538,14 @@ fun ArchiveRecordItem(
     val tagColor = if (isDark) style?.darkColor ?: DarkSurface
     else style?.lightColor ?: LightSurface
 
+    val formattedDate = remember(record.created_at) {
+        try {
+            record.created_at.substring(0, 10).replace("-", ".")
+        } catch (e: Exception) {
+            record.created_at
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -437,7 +575,7 @@ fun ArchiveRecordItem(
                     color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
                 )
             }
-            Text(text = record.created_at, fontSize = 11.sp, color = subTextColor)
+            Text(text = formattedDate, fontSize = 11.sp, color = subTextColor)
         }
     }
 }

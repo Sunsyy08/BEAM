@@ -2,6 +2,7 @@ package com.project.beam.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +37,8 @@ fun AddEmotionBottomSheet(
     val maxLength = 300
 
     val sheetState = rememberModalBottomSheetState()
+    val focusManager = LocalFocusManager.current
+
 
     val isEnabled = text.isNotBlank()
 
@@ -56,6 +61,9 @@ fun AddEmotionBottomSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { focusManager.clearFocus() })
+                }
         ) {
             // ── 헤더 ──
             Row(
@@ -142,8 +150,11 @@ fun AddEmotionBottomSheet(
 
             // ── 기록하기 버튼 ──
             Button(
-                onClick = { if (text.isNotBlank() && !isLoading) onSubmit(text) },
-                enabled = text.isNotBlank() && !isLoading,
+                onClick = {
+                    if (isEnabled && !isLoading) {
+                        onSubmit(text)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -164,18 +175,17 @@ fun AddEmotionBottomSheet(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("기록하기")
+                    Text(
+                        text = "기록하기",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isEnabled) {
+                            if (isDark) DarkBackground else LightBackground
+                        } else {
+                            textColor
+                        }
+                    )
                 }
-                Text(
-                    text = "기록하기",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isEnabled) {
-                        if (isDark) DarkBackground else LightBackground
-                    } else {
-                        textColor
-                    }
-                )
             }
         }
     }
