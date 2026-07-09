@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,13 +32,13 @@ import com.project.beam.viewmodel.EmotionCardUi
 import com.project.beam.viewmodel.EmotionViewModel
 import com.project.beam.viewmodel.RecordSubmitState
 
-// ── 감정 컬러 매핑 ────────────────────────────
+// ── 감정 컬러 + Lottie 매핑 ──────────────────
 val emotionCardStyleMap = mapOf(
-    "행복" to EmotionCard("☀️", "행복", 0, Color(0xFFFFF3C4), Color(0xFF4A3A00), Color(0xFFFFE066), Color(0xFFFFD700)),
-    "우울" to EmotionCard("🌧", "우울", 0, Color(0xFFDAE0F5), Color(0xFF1A2456), Color(0xFF8FA8FF), Color(0xFF3D5AFE)),
-    "외로움" to EmotionCard("🌙", "외로움", 0, Color(0xFFE8DCFF), Color(0xFF2D1F5E), Color(0xFFB39DFF), Color(0xFF7C4DFF)),
-    "짜증" to EmotionCard("😤", "짜증", 0, Color(0xFFFFD6D6), Color(0xFF5C1A1A), Color(0xFFFF8A80), Color(0xFFFF5252)),
-    "슬픔" to EmotionCard("💧", "슬픔", 0, Color(0xFFD6F0FF), Color(0xFF0A3040), Color(0xFF80D8FF), Color(0xFF40C4FF))
+    "행복" to EmotionCard("☀️", "행복", 0, Color(0xFFFFF3C4), Color(0xFF4A3A00), Color(0xFFFFE066), Color(0xFFFFD700), R.raw.happy),
+    "우울" to EmotionCard("🌧", "우울", 0, Color(0xFFDAE0F5), Color(0xFF1A2456), Color(0xFF8FA8FF), Color(0xFF3D5AFE), R.raw.sadness_depression),
+    "외로움" to EmotionCard("🌙", "외로움", 0, Color(0xFFE8DCFF), Color(0xFF2D1F5E), Color(0xFFB39DFF), Color(0xFF7C4DFF), R.raw.loneliness),
+    "짜증" to EmotionCard("😤", "짜증", 0, Color(0xFFFFD6D6), Color(0xFF5C1A1A), Color(0xFFFF8A80), Color(0xFFFF5252), R.raw.annoying),
+    "슬픔" to EmotionCard("💧", "슬픔", 0, Color(0xFFD6F0FF), Color(0xFF0A3040), Color(0xFF80D8FF), Color(0xFF40C4FF), R.raw.sadness_depression)
 )
 
 // ── HomeScreen ────────────────────────────────
@@ -54,14 +55,14 @@ fun HomeScreen(
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
     val cardBg = if (isDark) DarkSurface else LightSurface
-    var selectedSlogan by remember { mutableStateOf<String?>(null) }
 
     val viewModel = remember { EmotionViewModel() }
     val homeState by viewModel.homeState.collectAsState()
     val submitState by viewModel.submitState.collectAsState()
-
-    val context = LocalContext.current
     val slogan by viewModel.slogan.collectAsState()
+    val context = LocalContext.current
+
+    var selectedSlogan by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadHomeData()
@@ -168,11 +169,9 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
             // ── 오늘의 질문 카드 ──
             slogan?.let { question ->
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -245,7 +244,7 @@ fun HomeScreen(
                         text = "아직 기록이 없어요\n첫 감정을 남겨보세요 💭",
                         color = subTextColor,
                         fontSize = 14.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        textAlign = TextAlign.Center,
                         lineHeight = 22.sp
                     )
                 }
@@ -320,10 +319,7 @@ fun EmotionGrid(
                         .clickable { onEmotionClick(card) }
                 )
             }
-            // 카드가 1개면 빈 공간 채우기
-            if (firstRow.size == 1) {
-                Spacer(modifier = Modifier.weight(1f))
-            }
+            if (firstRow.size == 1) Spacer(modifier = Modifier.weight(1f))
         }
         if (secondRow.isNotEmpty()) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -341,9 +337,7 @@ fun EmotionGrid(
                             .clickable { onEmotionClick(card) }
                     )
                 }
-                repeat(3 - secondRow.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+                repeat(3 - secondRow.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }
@@ -387,6 +381,7 @@ fun EmotionCardItem(
             )
             .padding(14.dp)
     ) {
+        // 글로우 오버레이
         Box(
             modifier = Modifier
                 .size(60.dp)
@@ -402,12 +397,19 @@ fun EmotionCardItem(
                     )
                 )
         )
+
+        // 상단: Lottie 아이콘 + 개수
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = emoji, fontSize = 22.sp)
+            val lottieRes = style?.lottieRes
+            if (lottieRes != null && lottieRes != 0) {
+                LottieIcon(resId = lottieRes, size = 36.dp, isPlaying = true)
+            } else {
+                Text(text = emoji, fontSize = 22.sp)
+            }
             Text(
                 text = "${count}개",
                 fontSize = 11.sp,
@@ -415,6 +417,8 @@ fun EmotionCardItem(
                 fontWeight = FontWeight.Medium
             )
         }
+
+        // 하단: 감정명 + 유물 개수
         Column(modifier = Modifier.align(Alignment.BottomStart)) {
             Text(
                 text = name,
@@ -464,14 +468,22 @@ fun RecentRecordCard(
             modifier = Modifier.height(60.dp)
         )
         Spacer(modifier = Modifier.height(10.dp))
-        Box(
+        Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(tagColor)
-                .padding(horizontal = 10.dp, vertical = 4.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            val lottieRes = emotionStyle?.lottieRes
+            if (lottieRes != null && lottieRes != 0) {
+                LottieIcon(resId = lottieRes, size = 18.dp, isPlaying = true)
+            } else {
+                Text(text = emotionStyle?.emoji ?: "", fontSize = 12.sp)
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "${emotionStyle?.emoji ?: ""} ${record.category}",
+                text = record.category,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
@@ -582,7 +594,7 @@ fun LottieIcon(
     val progress by animateLottieCompositionAsState(
         composition = composition,
         isPlaying = isPlaying,
-        iterations = 1,
+        iterations = LottieConstants.IterateForever,
         restartOnPlay = true
     )
     LottieAnimation(

@@ -10,7 +10,8 @@ data class EmotionCard(
     val lightColor: Color,
     val darkColor: Color,
     val lightGlow: Color,
-    val darkGlow: Color
+    val darkGlow: Color,
+    val lottieRes: Int = 0
 )
 
 // 요청

@@ -1,35 +1,34 @@
 package com.project.beam.ui.auth
 
+import android.app.Activity
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.project.beam.ui.theme.*
-import com.project.beam.R
-import android.app.Activity
-import android.util.Log
-import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.project.beam.R
 import com.project.beam.data.core.Constants
+import com.project.beam.ui.home.LottieIcon
+import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.AuthState
 import com.project.beam.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
@@ -38,28 +37,24 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     onGoogleSignInClick: () -> Unit = {}
 ) {
-    val isDark       = isSystemInDarkTheme()
+    val isDark       = false // 로그인 화면은 라이트 고정 or isSystemInDarkTheme()
     val bgColor      = if (isDark) DarkBackground       else LightBackground
     val textColor    = if (isDark) DarkText             else LightText
     val subTextColor = if (isDark) DarkSubText          else LightSubText
     val btnColor     = if (isDark) GoogleBtnDark        else GoogleBtnLight
     val btnBorder    = if (isDark) GoogleBtnBorderDark  else GoogleBtnBorderLight
-    val logoBg       = if (isDark) LogoBgDark           else LogoBgLight
-    val logoText     = if (isDark) LogoTextDark         else LogoTextLight
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val authViewModel = remember { AuthViewModel(context) }
     val authState by authViewModel.authState.collectAsState()
 
-    // 로그인 성공 시 화면 이동
     LaunchedEffect(authState) {
         if (authState is AuthState.Success) {
             onGoogleSignInClick()
         }
     }
 
-    // 구글 로그인 함수
     fun startGoogleLogin() {
         coroutineScope.launch {
             try {
@@ -100,16 +95,25 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.weight(1.5f))
+            Spacer(modifier = Modifier.weight(1f))
+
+            // ── hello 애니메이션 ──
+            LottieIcon(
+                resId = R.raw.hello,
+                size = 180.dp,
+                isPlaying = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // ── 로고 ──
             Image(
                 painter = painterResource(id = R.drawable.logo),
                 contentDescription = "BEAM 로고",
-                modifier = Modifier.size(120.dp)
+                modifier = Modifier.size(80.dp)
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "오늘의 감정을 여기 두고 가요",
@@ -157,7 +161,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── 하단 안내 ──
             Text(
                 text = "계속 진행 시 이용약관 및 개인정보처리방침에 동의하게 됩니다.",
                 fontSize = 11.sp,
@@ -167,7 +170,6 @@ fun LoginScreen(
             )
 
             Spacer(modifier = Modifier.height(40.dp))
-
         }
     }
 }
@@ -175,11 +177,5 @@ fun LoginScreen(
 @Preview(showBackground = true, name = "Login Light")
 @Composable
 fun LoginScreenLightPreview() {
-    LoginScreen()
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF141414, name = "Login Dark")
-@Composable
-fun LoginScreenDarkPreview() {
     LoginScreen()
 }
