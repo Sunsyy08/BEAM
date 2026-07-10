@@ -43,6 +43,9 @@ class EmotionViewModel : ViewModel() {
     private val _monthlyStats = MutableStateFlow<List<MonthlyEmotionResponse>>(emptyList())
     val monthlyStats: StateFlow<List<MonthlyEmotionResponse>> = _monthlyStats
 
+    private val _lastCategory = MutableStateFlow<String?>(null)
+    val lastCategory: StateFlow<String?> = _lastCategory
+
     private val _slogan = MutableStateFlow<String?>(null)
     val slogan: StateFlow<String?> = _slogan
 
@@ -91,15 +94,20 @@ class EmotionViewModel : ViewModel() {
         viewModelScope.launch {
             _submitState.value = RecordSubmitState.Loading
             repository.createRecord(content).fold(
-                onSuccess = {
+                onSuccess = { record ->
+                    _lastCategory.value = record.category  // 추가
                     _submitState.value = RecordSubmitState.Success
-                    loadHomeData() // 등록 후 홈 데이터 새로고침
+                    loadHomeData()
                 },
                 onFailure = {
                     _submitState.value = RecordSubmitState.Error(it.message ?: "등록 실패")
                 }
             )
         }
+    }
+
+    fun clearLastCategory() {
+        _lastCategory.value = null
     }
 
     fun loadMonthlyStats() {

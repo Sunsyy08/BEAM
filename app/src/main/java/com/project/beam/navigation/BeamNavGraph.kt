@@ -2,12 +2,12 @@ package com.project.beam.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,9 +22,11 @@ import androidx.navigation.compose.rememberNavController
 import com.project.beam.R
 import com.project.beam.ui.archive.ArchiveScreen
 import com.project.beam.ui.auth.LoginScreen
+import com.project.beam.ui.home.EmotionCelebrationOverlay
 import com.project.beam.ui.home.EmotionDetailScreen
 import com.project.beam.ui.home.HomeScreen
 import com.project.beam.ui.home.LottieIcon
+import com.project.beam.ui.home.emotionCardStyleMap
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionCardUi
 
@@ -32,7 +34,8 @@ sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Home : Screen("home")
     object Archive : Screen("archive")
-    object EmotionDetail : Screen("emotion_detail")}
+    object EmotionDetail : Screen("emotion_detail")
+}
 
 @Composable
 fun BeamNavGraph(
@@ -41,103 +44,116 @@ fun BeamNavGraph(
     val systemDark = isSystemInDarkTheme()
     var isDark by remember { mutableStateOf(systemDark) }
 
-    // 바텀바 아이콘 애니메이션 상태 (전역)
     var homeClicked by remember { mutableStateOf(false) }
     var addClicked by remember { mutableStateOf(false) }
     var timelineClicked by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
+    var selectedEmotionCard by remember { mutableStateOf<EmotionCardUi?>(null) }
+    var celebrationCategory by remember { mutableStateOf<String?>(null) }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
-    // 바텀바 숨길 화면
     val showBottomBar = currentRoute != Screen.Login.route
 
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
     val subTextColor = if (isDark) DarkSubText else LightSubText
 
-    var selectedEmotionCard by remember { mutableStateOf<com.project.beam.viewmodel.EmotionCardUi?>(null) }
-
-    Scaffold(
-        containerColor = bgColor,
-        bottomBar = {
-            if (showBottomBar) {
-                BeamBottomBar(
-                    isDark = isDark,
-                    bgColor = bgColor,
-                    textColor = textColor,
-                    subTextColor = subTextColor,
-                    currentRoute = currentRoute,
-                    homeClicked = homeClicked,
-                    addClicked = addClicked,
-                    timelineClicked = timelineClicked,
-                    onHomeClick = {
-                        homeClicked = !homeClicked
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
-                    },
-                    onAddClick = {
-                        addClicked = !addClicked
-                        showBottomSheet = true
-                    },
-                    onArchiveClick = {
-                        timelineClicked = !timelineClicked
-                        navController.navigate(Screen.Archive.route) {
-                            popUpTo(Screen.Archive.route) { inclusive = true }
-                        }
-                    }
-                )
-            }
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Login.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(Screen.Login.route) {
-                LoginScreen(
-                    onGoogleSignInClick = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-            composable(Screen.Home.route) {
-                HomeScreen(
-                    isDark = isDark,
-                    onDarkModeToggle = { isDark = it },
-                    showBottomSheet = showBottomSheet,
-                    onBottomSheetDismiss = { showBottomSheet = false },
-                    onSloganClick = { showBottomSheet = true },
-                    onEmotionClick = { card ->
-                        selectedEmotionCard = card
-                        navController.navigate(Screen.EmotionDetail.route)
-                    }
-                )
-            }
-
-            composable(Screen.EmotionDetail.route) {
-                selectedEmotionCard?.let { card ->
-                    EmotionDetailScreen(
-                        emotionCardUi = card,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = bgColor,
+            bottomBar = {
+                if (showBottomBar) {
+                    BeamBottomBar(
                         isDark = isDark,
-                        onDarkModeToggle = { isDark = it },
-                        onBackClick = { navController.popBackStack() }
+                        bgColor = bgColor,
+                        textColor = textColor,
+                        subTextColor = subTextColor,
+                        currentRoute = currentRoute,
+                        homeClicked = homeClicked,
+                        addClicked = addClicked,
+                        timelineClicked = timelineClicked,
+                        onHomeClick = {
+                            homeClicked = !homeClicked
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        onAddClick = {
+                            addClicked = !addClicked
+                            showBottomSheet = true
+                        },
+                        onArchiveClick = {
+                            timelineClicked = !timelineClicked
+                            navController.navigate(Screen.Archive.route) {
+                                popUpTo(Screen.Archive.route) { inclusive = true }
+                            }
+                        }
                     )
                 }
             }
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Login.route,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable(Screen.Login.route) {
+                    LoginScreen(
+                        onGoogleSignInClick = {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Login.route) { inclusive = true }
+                            }
+                        }
+                    )
+                }
 
-            composable(Screen.Archive.route) {
-                ArchiveScreen(
-                    isDark = isDark,
-                    onDarkModeToggle = { isDark = it }
-                )
+                composable(Screen.Home.route) {
+                    HomeScreen(
+                        isDark = isDark,
+                        onDarkModeToggle = { isDark = it },
+                        showBottomSheet = showBottomSheet,
+                        onBottomSheetDismiss = { showBottomSheet = false },
+                        onSloganClick = { showBottomSheet = true },
+                        onEmotionClick = { card ->
+                            selectedEmotionCard = card
+                            navController.navigate(Screen.EmotionDetail.route)
+                        },
+                        onRecordSubmitted = { category ->
+                            celebrationCategory = category
+                        }
+                    )
+                }
+
+                composable(Screen.EmotionDetail.route) {
+                    selectedEmotionCard?.let { card ->
+                        EmotionDetailScreen(
+                            emotionCardUi = card,
+                            isDark = isDark,
+                            onDarkModeToggle = { isDark = it },
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+                }
+
+                composable(Screen.Archive.route) {
+                    ArchiveScreen(
+                        isDark = isDark,
+                        onDarkModeToggle = { isDark = it }
+                    )
+                }
             }
+        }
+
+        // ── 전체화면 감정 축하 오버레이 ──
+        celebrationCategory?.let { category ->
+            val style = emotionCardStyleMap[category]
+            EmotionCelebrationOverlay(
+                category = category,
+                isDark = isDark,
+                style = style,
+                onFinished = { celebrationCategory = null }
+            )
         }
     }
 }

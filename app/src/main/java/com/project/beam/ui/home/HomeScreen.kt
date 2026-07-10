@@ -49,7 +49,8 @@ fun HomeScreen(
     showBottomSheet: Boolean,
     onBottomSheetDismiss: () -> Unit,
     onSloganClick: () -> Unit = {},
-    onEmotionClick: (EmotionCardUi) -> Unit = {}
+    onEmotionClick: (EmotionCardUi) -> Unit = {},
+    onRecordSubmitted: (String) -> Unit = {}
 ) {
     val bgColor = if (isDark) DarkBackground else LightBackground
     val textColor = if (isDark) DarkText else LightText
@@ -71,8 +72,13 @@ fun HomeScreen(
 
     LaunchedEffect(submitState) {
         if (submitState is RecordSubmitState.Success) {
+            val category = viewModel.lastCategory.value
             onBottomSheetDismiss()
             viewModel.resetSubmitState()
+            if (category != null) {
+                onRecordSubmitted(category)
+                viewModel.clearLastCategory()
+            }
         }
     }
 
@@ -111,45 +117,10 @@ fun HomeScreen(
                     color = textColor,
                     letterSpacing = 2.sp
                 )
-                Box(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .height(28.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0))
-                        .border(1.dp, if (isDark) Color(0xFF555555) else Color(0xFFCCCCCC), CircleShape)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 4.dp),
-                        horizontalArrangement = if (isDark) Arrangement.End else Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(Color.White),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = if (isDark) "🌙" else "☀️", fontSize = 10.sp)
-                        }
-                    }
-                    Switch(
-                        checked = isDark,
-                        onCheckedChange = { onDarkModeToggle(it) },
-                        modifier = Modifier.fillMaxSize(),
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Transparent,
-                            uncheckedThumbColor = Color.Transparent,
-                            checkedTrackColor = Color.Transparent,
-                            uncheckedTrackColor = Color.Transparent,
-                            checkedBorderColor = Color.Transparent,
-                            uncheckedBorderColor = Color.Transparent
-                        )
-                    )
-                }
+                DarkModeToggle(
+                    isDark = isDark,
+                    onToggle = { onDarkModeToggle(it) }
+                )
             }
 
             // ── 타이틀 ──
@@ -313,6 +284,7 @@ fun EmotionGrid(
                     count = card.count,
                     style = style,
                     isDark = isDark,
+                    lottieSize = 52.dp,
                     modifier = Modifier
                         .weight(1f)
                         .height(140.dp)
@@ -331,6 +303,7 @@ fun EmotionGrid(
                         count = card.count,
                         style = style,
                         isDark = isDark,
+                        lottieSize = 52.dp,
                         modifier = Modifier
                             .weight(1f)
                             .height(110.dp)
@@ -351,6 +324,7 @@ fun EmotionCardItem(
     count: Int,
     style: EmotionCard?,
     isDark: Boolean,
+    lottieSize: Dp = 48.dp,
     modifier: Modifier = Modifier
 ) {
     val baseColor = if (isDark) style?.darkColor ?: Color(0xFF2A2A2A)
@@ -406,7 +380,7 @@ fun EmotionCardItem(
         ) {
             val lottieRes = style?.lottieRes
             if (lottieRes != null && lottieRes != 0) {
-                LottieIcon(resId = lottieRes, size = 36.dp, isPlaying = true)
+                LottieIcon(resId = lottieRes, size = lottieSize, isPlaying = true)
             } else {
                 Text(text = emoji, fontSize = 22.sp)
             }
@@ -602,4 +576,42 @@ fun LottieIcon(
         progress = { progress },
         modifier = Modifier.size(size)
     )
+}
+
+@Composable
+fun DarkModeToggle(
+    isDark: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .width(64.dp)
+            .height(32.dp)
+            .clip(CircleShape)
+            .background(if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0))
+            .clickable { onToggle(!isDark) },
+        contentAlignment = Alignment.Center
+    ) {
+        // 슬라이딩 원
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp),
+            horizontalArrangement = if (isDark) Arrangement.End else Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF1A1A1A) else Color(0xFFFFFFFF)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isDark) "🌙" else "☀️",
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
 }

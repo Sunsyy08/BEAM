@@ -27,6 +27,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.project.beam.data.emotion.RecordResponse
+import com.project.beam.ui.home.DarkModeToggle
+import com.project.beam.ui.home.LottieIcon
 import com.project.beam.ui.home.emotionCardStyleMap
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionViewModel
@@ -85,45 +87,10 @@ fun ArchiveScreen(
                         color = textColor,
                         letterSpacing = 2.sp
                     )
-                    Box(
-                        modifier = Modifier
-                            .width(52.dp)
-                            .height(28.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0))
-                            .border(1.dp, if (isDark) Color(0xFF555555) else Color(0xFFCCCCCC), CircleShape)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 4.dp),
-                            horizontalArrangement = if (isDark) Arrangement.End else Arrangement.Start,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = if (isDark) "🌙" else "☀️", fontSize = 10.sp)
-                            }
-                        }
-                        Switch(
-                            checked = isDark,
-                            onCheckedChange = { onDarkModeToggle(it) },
-                            modifier = Modifier.fillMaxSize(),
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.Transparent,
-                                uncheckedThumbColor = Color.Transparent,
-                                checkedTrackColor = Color.Transparent,
-                                uncheckedTrackColor = Color.Transparent,
-                                checkedBorderColor = Color.Transparent,
-                                uncheckedBorderColor = Color.Transparent
-                            )
-                        )
-                    }
+                    DarkModeToggle(
+                        isDark = isDark,
+                        onToggle = { onDarkModeToggle(it) }
+                    )
                 }
             }
 
@@ -206,18 +173,25 @@ fun EmotionLineChart(
     var selectedDateIndex by remember { mutableStateOf<Int?>(null) }
     val animationProgress = remember { Animatable(0f) }
 
-    // 일별 집계
     val graphPoints = remember(records) {
         val grouped = records.groupBy { it.created_at.take(10) }
         val dailyMap = grouped.mapValues { (_, dayRecords) ->
             dayRecords.groupBy { it.category }.mapValues { it.value.size }
         }
         val today = LocalDate.now()
-        val dates = (29 downTo 0).map { today.minusDays(it.toLong()) }
-        val filteredDates = dates.filter { date ->
-            dailyMap.containsKey(date.toString()) || date == today
-        }
-        filteredDates.map { date ->
+
+        // 오늘 기준 최근 5일 무조건 포함
+        val defaultDates = (4 downTo 0).map { today.minusDays(it.toLong()) }
+
+        // 데이터 있는 날짜 중 기본 5일에 없는 것도 추가
+        val extraDates = dailyMap.keys
+            .map { LocalDate.parse(it) }
+            .filter { it !in defaultDates }
+            .sortedDescending()
+
+        val allDates = (defaultDates + extraDates).sortedBy { it }
+
+        allDates.map { date ->
             val counts = dailyMap[date.toString()] ?: emptyMap()
             GraphPoint(
                 date = "${date.monthValue}/${date.dayOfMonth}",
@@ -297,8 +271,6 @@ fun EmotionLineChart(
                         val paddingBottom = 36f
                         val paddingTop = 16f
                         val chartH = h - paddingBottom - paddingTop
-
-                        // Y축 0~5 고정
                         val maxVal = 5f
                         val yStepCount = 5
 
@@ -316,7 +288,7 @@ fun EmotionLineChart(
                             textAlign = android.graphics.Paint.Align.CENTER
                         }
 
-                        // Y축 가이드라인 + 숫자 (0~5)
+                        // Y축 가이드라인 + 숫자
                         for (i in 0..yStepCount) {
                             val y = paddingTop + chartH - (i.toFloat() / yStepCount * chartH)
                             drawLine(
@@ -409,9 +381,8 @@ fun EmotionLineChart(
                                     cap = StrokeCap.Round
                                 )
                             }
-                            points.take(fullSegments + 1).forEach { point ->
-                                val pointIndex = points.indexOf(point)
-                                val value = graphPoints.getOrNull(pointIndex)?.counts?.get(emotion) ?: 0
+                            points.take(fullSegments + 1).forEachIndexed { idx, point ->
+                                val value = graphPoints.getOrNull(idx)?.counts?.get(emotion) ?: 0
                                 if (value > 0) {
                                     drawCircle(color = color, radius = 4f, center = point)
                                 }
@@ -427,24 +398,18 @@ fun EmotionLineChart(
                             }
                         }
 
-                        // X축 날짜 (포인트가 많으면 일부만 표시)
+                        // X축 날짜
                         val showEvery = when {
                             graphPoints.size <= 7 -> 1
                             graphPoints.size <= 14 -> 2
                             else -> 3
                         }
-
                         drawIntoCanvas { canvas ->
                             graphPoints.forEachIndexed { index, data ->
                                 if (index % showEvery == 0 || index == graphPoints.size - 1) {
                                     val x = if (graphPoints.size == 1) leftPadding + chartW / 2f
                                     else leftPadding + index * segmentWidth
-                                    canvas.nativeCanvas.drawText(
-                                        data.date,
-                                        x,
-                                        h - 4f,
-                                        xLabelPaint
-                                    )
+                                    canvas.nativeCanvas.drawText(data.date, x, h - 4f, xLabelPaint)
                                 }
                             }
                         }
@@ -487,12 +452,26 @@ fun EmotionLineChart(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         emotions.forEach { emotion ->
-                                            Text(
-                                                text = "$emotion : ${data.counts[emotion] ?: 0}",
-                                                fontSize = 11.sp,
-                                                color = emotionColors[emotion] ?: subTextColor,
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
                                                 modifier = Modifier.padding(vertical = 1.dp)
-                                            )
+                                            ) {
+                                                val style = emotionCardStyleMap[emotion]
+                                                val lottieRes = style?.lottieRes
+                                                if (lottieRes != null && lottieRes != 0) {
+                                                    LottieIcon(
+                                                        resId = lottieRes,
+                                                        size = 16.dp,
+                                                        isPlaying = true
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                }
+                                                Text(
+                                                    text = "$emotion : ${data.counts[emotion] ?: 0}",
+                                                    fontSize = 11.sp,
+                                                    color = emotionColors[emotion] ?: subTextColor
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -562,14 +541,22 @@ fun ArchiveRecordItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(tagColor)
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                val lottieRes = style?.lottieRes
+                if (lottieRes != null && lottieRes != 0) {
+                    LottieIcon(resId = lottieRes, size = 18.dp, isPlaying = true)
+                } else {
+                    Text(text = style?.emoji ?: "", fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "${style?.emoji ?: ""} ${record.category}",
+                    text = record.category,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)

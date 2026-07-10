@@ -23,7 +23,6 @@ import com.project.beam.data.emotion.RecordResponse
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionCardUi
 
-// ── EmotionDetailScreen ───────────────────────
 @Composable
 fun EmotionDetailScreen(
     emotionCardUi: EmotionCardUi,
@@ -60,45 +59,10 @@ fun EmotionDetailScreen(
                     color = textColor,
                     letterSpacing = 2.sp
                 )
-                Box(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .height(28.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0))
-                        .border(1.dp, if (isDark) Color(0xFF555555) else Color(0xFFCCCCCC), CircleShape)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 4.dp),
-                        horizontalArrangement = if (isDark) Arrangement.End else Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(Color.White),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = if (isDark) "🌙" else "☀️", fontSize = 10.sp)
-                        }
-                    }
-                    Switch(
-                        checked = isDark,
-                        onCheckedChange = { onDarkModeToggle(it) },
-                        modifier = Modifier.fillMaxSize(),
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Transparent,
-                            uncheckedThumbColor = Color.Transparent,
-                            checkedTrackColor = Color.Transparent,
-                            uncheckedTrackColor = Color.Transparent,
-                            checkedBorderColor = Color.Transparent,
-                            uncheckedBorderColor = Color.Transparent
-                        )
-                    )
-                }
+                DarkModeToggle(
+                    isDark = isDark,
+                    onToggle = { onDarkModeToggle(it) }
+                )
             }
 
             // ── 뒤로가기 + 타이틀 ──
@@ -127,7 +91,17 @@ fun EmotionDetailScreen(
                 Column {
                     Text(text = "감정 기록", fontSize = 12.sp, color = subTextColor)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = emotionCardUi.emoji, fontSize = 20.sp)
+                        // Lottie 아이콘
+                        val lottieRes = style?.lottieRes
+                        if (lottieRes != null && lottieRes != 0) {
+                            LottieIcon(
+                                resId = lottieRes,
+                                size = 32.dp,
+                                isPlaying = true
+                            )
+                        } else {
+                            Text(text = emotionCardUi.emoji, fontSize = 20.sp)
+                        }
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = emotionCardUi.name,
@@ -164,7 +138,7 @@ fun EmotionDetailScreen(
                             textColor = textColor,
                             subTextColor = subTextColor,
                             tagColor = tagColor,
-                            emoji = emotionCardUi.emoji
+                            style = style
                         )
                     }
                     item { Spacer(modifier = Modifier.height(20.dp)) }
@@ -183,8 +157,16 @@ fun EmotionRecordItem(
     textColor: Color,
     subTextColor: Color,
     tagColor: Color,
-    emoji: String
+    style: com.project.beam.data.emotion.EmotionCard?
 ) {
+    val formattedDate = remember(record.created_at) {
+        try {
+            record.created_at.substring(0, 10).replace("-", ".")
+        } catch (e: Exception) {
+            record.created_at
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -209,21 +191,29 @@ fun EmotionRecordItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(tagColor)
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                val lottieRes = style?.lottieRes
+                if (lottieRes != null && lottieRes != 0) {
+                    LottieIcon(resId = lottieRes, size = 18.dp, isPlaying = true)
+                } else {
+                    Text(text = style?.emoji ?: "", fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "$emoji ${record.category}",
+                    text = record.category,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
                 )
             }
             Text(
-                text = record.created_at,
+                text = formattedDate,
                 fontSize = 11.sp,
                 color = subTextColor
             )
