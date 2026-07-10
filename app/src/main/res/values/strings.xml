@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">BEAM</string>
+    <string name="widget_description">오늘의 감정을 확인하세요</string>
 </resources>

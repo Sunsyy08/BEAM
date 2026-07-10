@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import android.content.Context
+import androidx.glance.appwidget.updateAll
 import com.project.beam.data.slogan.SloganRepository
+import com.project.beam.widget.BeamWidget
 
 data class HomeUiState(
     val records: List<RecordResponse> = emptyList(),
@@ -92,14 +94,16 @@ class EmotionViewModel : ViewModel() {
         }
     }
 
-    fun createRecord(content: String) {
+    fun createRecord(content: String, context: Context) {
         viewModelScope.launch {
             _submitState.value = RecordSubmitState.Loading
             repository.createRecord(content).fold(
                 onSuccess = { record ->
-                    _lastCategory.value = record.category  // 추가
+                    _lastCategory.value = record.category
                     _submitState.value = RecordSubmitState.Success
                     loadHomeData()
+                    // 위젯 갱신
+                    BeamWidget().updateAll(context)
                 },
                 onFailure = {
                     _submitState.value = RecordSubmitState.Error(it.message ?: "등록 실패")

@@ -95,7 +95,7 @@ fun HomeScreen(
                 onBottomSheetDismiss()
                 selectedSlogan = null
             },
-            onSubmit = { content -> viewModel.createRecord(content) },
+            onSubmit = { content -> viewModel.createRecord(content, context) },
             isLoading = submitState is RecordSubmitState.Loading,
             hint = selectedSlogan
         )
