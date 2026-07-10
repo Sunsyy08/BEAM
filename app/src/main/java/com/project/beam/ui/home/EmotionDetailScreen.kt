@@ -22,6 +22,10 @@ import androidx.compose.ui.unit.sp
 import com.project.beam.data.emotion.RecordResponse
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionCardUi
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.itemsIndexed
+import kotlinx.coroutines.delay
 
 @Composable
 fun EmotionDetailScreen(
@@ -130,16 +134,29 @@ fun EmotionDetailScreen(
                     contentPadding = PaddingValues(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(emotionCardUi.records) { record ->
-                        EmotionRecordItem(
-                            record = record,
-                            isDark = isDark,
-                            cardBg = cardBg,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            tagColor = tagColor,
-                            style = style
-                        )
+                    itemsIndexed(emotionCardUi.records) { index, record ->
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            delay(100L + index * 80L)
+                            visible = true
+                        }
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(350)) + slideInVertically(
+                                animationSpec = tween(350),
+                                initialOffsetY = { it / 2 }
+                            )
+                        ) {
+                            EmotionRecordItem(
+                                record = record,
+                                isDark = isDark,
+                                cardBg = cardBg,
+                                textColor = textColor,
+                                subTextColor = subTextColor,
+                                tagColor = tagColor,
+                                style = style
+                            )
+                        }
                     }
                     item { Spacer(modifier = Modifier.height(20.dp)) }
                 }

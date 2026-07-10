@@ -37,7 +37,9 @@ fun AddEmotionBottomSheet(
     var text by remember { mutableStateOf("") }
     val maxLength = 300
 
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(
+        confirmValueChange = { true }
+    )
     val focusManager = LocalFocusManager.current
 
 
@@ -45,7 +47,9 @@ fun AddEmotionBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = bgColor,
+        sheetState = sheetState,
+        containerColor = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF),
+        tonalElevation = 0.dp,
         dragHandle = {
             Box(
                 modifier = Modifier

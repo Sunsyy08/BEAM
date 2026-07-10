@@ -29,6 +29,8 @@ import com.project.beam.ui.home.LottieIcon
 import com.project.beam.ui.home.emotionCardStyleMap
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionCardUi
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -96,7 +98,28 @@ fun BeamNavGraph(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Login.route,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.padding(innerPadding),
+                enterTransition = {
+                    fadeIn(tween(300)) + slideInVertically(
+                        animationSpec = tween(300),
+                        initialOffsetY = { it / 20 }
+                    )
+                },
+                exitTransition = {
+                    fadeOut(tween(200))
+                },
+                popEnterTransition = {
+                    fadeIn(tween(300)) + slideInVertically(
+                        animationSpec = tween(300),
+                        initialOffsetY = { -it / 20 }
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(tween(200)) + slideOutVertically(
+                        animationSpec = tween(300),
+                        targetOffsetY = { it / 20 }
+                    )
+                }
             ) {
                 composable(Screen.Login.route) {
                     LoginScreen(

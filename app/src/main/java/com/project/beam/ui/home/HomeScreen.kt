@@ -1,5 +1,9 @@
 package com.project.beam.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,10 +68,12 @@ fun HomeScreen(
     val context = LocalContext.current
 
     var selectedSlogan by remember { mutableStateOf<String?>(null) }
+    var contentVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadHomeData()
         viewModel.loadSlogan(context)
+        contentVisible = true
     }
 
     LaunchedEffect(submitState) {
@@ -102,7 +108,7 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ── 상단 바 ──
+            // ── 상단 바 (애니메이션 없이 바로) ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -117,146 +123,154 @@ fun HomeScreen(
                     color = textColor,
                     letterSpacing = 2.sp
                 )
-                DarkModeToggle(
-                    isDark = isDark,
-                    onToggle = { onDarkModeToggle(it) }
-                )
+                DarkModeToggle(isDark = isDark, onToggle = { onDarkModeToggle(it) })
             }
 
-            // ── 타이틀 ──
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                Text(
-                    text = "오늘도 여기 두고 가요",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
+            // ── 나머지 콘텐츠 (슥 등장) ──
+            AnimatedVisibility(
+                visible = contentVisible,
+                enter = fadeIn(tween(400)) + slideInVertically(
+                    animationSpec = tween(400),
+                    initialOffsetY = { it / 10 }
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = java.text.SimpleDateFormat("M월 d일 (E)", java.util.Locale.KOREAN)
-                        .format(java.util.Date()),
-                    fontSize = 13.sp,
-                    color = subTextColor
-                )
-            }
+            ) {
+                Column {
+                    // ── 타이틀 ──
+                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Text(
+                            text = "오늘도 여기 두고 가요",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = java.text.SimpleDateFormat("M월 d일 (E)", java.util.Locale.KOREAN)
+                                .format(java.util.Date()),
+                            fontSize = 13.sp,
+                            color = subTextColor
+                        )
+                    }
 
-            // ── 오늘의 질문 카드 ──
-            slogan?.let { question ->
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = if (isDark)
-                                    listOf(Color(0xFF2A2A2A), Color(0xFF1E1E1E))
-                                else
-                                    listOf(Color(0xFFF5F0FF), Color(0xFFEDE8FF))
-                            )
-                        )
-                        .border(
-                            1.dp,
-                            if (isDark) Color(0xFF3A3A3A) else Color(0xFFD4C8FF),
-                            RoundedCornerShape(16.dp)
-                        )
-                        .clickable {
-                            selectedSlogan = question
-                            onSloganClick()
+                    // ── 오늘의 질문 카드 ──
+                    slogan?.let { question ->
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = if (isDark)
+                                            listOf(Color(0xFF2A2A2A), Color(0xFF1E1E1E))
+                                        else
+                                            listOf(Color(0xFFF5F0FF), Color(0xFFEDE8FF))
+                                    )
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isDark) Color(0xFF3A3A3A) else Color(0xFFD4C8FF),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    selectedSlogan = question
+                                    onSloganClick()
+                                }
+                                .padding(16.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "오늘의 질문 ✨",
+                                    fontSize = 11.sp,
+                                    color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = question,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = textColor,
+                                    lineHeight = 22.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "여기에 남기기 →",
+                                    fontSize = 11.sp,
+                                    color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF)
+                                )
+                            }
                         }
-                        .padding(16.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "오늘의 질문 ✨",
-                            fontSize = 11.sp,
-                            color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = question,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = textColor,
-                            lineHeight = 22.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "여기에 남기기 →",
-                            fontSize = 11.sp,
-                            color = if (isDark) Color(0xFF9B8EC4) else Color(0xFF7C4DFF)
-                        )
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-            // ── 로딩 / 감정 카드 ──
-            if (homeState.isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = textColor)
-                }
-            } else if (homeState.emotionCards.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "아직 기록이 없어요\n첫 감정을 남겨보세요 💭",
-                        color = subTextColor,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
-                }
-            } else {
-                EmotionGrid(
-                    emotionCards = homeState.emotionCards,
-                    isDark = isDark,
-                    onEmotionClick = onEmotionClick
-                )
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // ── 최근 기록 ──
-            if (homeState.records.isNotEmpty()) {
-                Text(
-                    text = "최근 기록",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = textColor,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(homeState.records.take(10)) { record ->
-                        val style = emotionCardStyleMap[record.category]
-                        RecentRecordCard(
-                            record = record,
+                    // ── 감정 카드 ──
+                    if (homeState.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = textColor)
+                        }
+                    } else if (homeState.emotionCards.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "아직 기록이 없어요\n첫 감정을 남겨보세요 💭",
+                                color = subTextColor,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 22.sp
+                            )
+                        }
+                    } else {
+                        EmotionGrid(
+                            emotionCards = homeState.emotionCards,
                             isDark = isDark,
-                            cardBg = cardBg,
-                            textColor = textColor,
-                            emotionStyle = style
+                            onEmotionClick = onEmotionClick
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    // ── 최근 기록 ──
+                    if (homeState.records.isNotEmpty()) {
+                        Text(
+                            text = "최근 기록",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textColor,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(homeState.records.take(10)) { record ->
+                                val style = emotionCardStyleMap[record.category]
+                                RecentRecordCard(
+                                    record = record,
+                                    isDark = isDark,
+                                    cardBg = cardBg,
+                                    textColor = textColor,
+                                    emotionStyle = style
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
