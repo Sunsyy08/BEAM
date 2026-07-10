@@ -52,6 +52,7 @@ fun EmotionDetailScreen(
     else style?.lightColor ?: LightSurface
 
     val viewModel = remember { EmotionViewModel() }
+    val coroutineScope = rememberCoroutineScope()
 
     // emotionCardUi.records를 로컬 상태로 관리
     var records by remember { mutableStateOf(emotionCardUi.records) }
@@ -123,16 +124,6 @@ fun EmotionDetailScreen(
                 }
             }
 
-            // ── 힌트 텍스트 ──
-            Text(
-                text = "길게 눌러서 삭제",
-                fontSize = 11.sp,
-                color = subTextColor,
-                modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 8.dp)
-            )
-
             // ── 기록 리스트 ──
             if (records.isEmpty()) {
                 Box(
@@ -146,19 +137,30 @@ fun EmotionDetailScreen(
                     contentPadding = PaddingValues(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(records) { index, record ->
+                    itemsIndexed(
+                        items = records,
+                        key = { _, record -> record.id }  // ← key 추가
+                    ) { index, record ->
                         var visible by remember { mutableStateOf(false) }
+                        var deleted by remember { mutableStateOf(false) }
+
                         LaunchedEffect(Unit) {
                             delay(80L + index * 60L)
                             visible = true
                         }
+
                         androidx.compose.animation.AnimatedVisibility(
-                            visible = visible,
+                            visible = visible && !deleted,
                             enter = androidx.compose.animation.fadeIn(
                                 androidx.compose.animation.core.tween(350)
                             ) + androidx.compose.animation.slideInVertically(
                                 animationSpec = androidx.compose.animation.core.tween(350),
                                 initialOffsetY = { it / 2 }
+                            ),
+                            exit = androidx.compose.animation.fadeOut(
+                                androidx.compose.animation.core.tween(300)
+                            ) + androidx.compose.animation.shrinkVertically(
+                                animationSpec = androidx.compose.animation.core.tween(300)
                             )
                         ) {
                             SwipeableRecordItem(
@@ -170,8 +172,12 @@ fun EmotionDetailScreen(
                                 tagColor = tagColor,
                                 style = style,
                                 onDelete = {
-                                    records = records.filter { it.id != record.id }
-                                    viewModel.deleteRecord(record.id)
+                                    deleted = true
+                                    coroutineScope.launch {
+                                        delay(320)
+                                        records = records.filter { it.id != record.id }
+                                        viewModel.deleteRecord(record.id)
+                                    }
                                 }
                             )
                         }
