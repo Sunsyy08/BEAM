@@ -1,31 +1,40 @@
 package com.project.beam.ui.home
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.project.beam.data.emotion.RecordResponse
 import com.project.beam.ui.theme.*
 import com.project.beam.viewmodel.EmotionCardUi
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.lazy.itemsIndexed
+import com.project.beam.viewmodel.EmotionViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 
 @Composable
 fun EmotionDetailScreen(
@@ -41,6 +50,11 @@ fun EmotionDetailScreen(
     val style = emotionCardStyleMap[emotionCardUi.name]
     val tagColor = if (isDark) style?.darkColor ?: DarkSurface
     else style?.lightColor ?: LightSurface
+
+    val viewModel = remember { EmotionViewModel() }
+
+    // emotionCardUi.records를 로컬 상태로 관리
+    var records by remember { mutableStateOf(emotionCardUi.records) }
 
     Scaffold(containerColor = bgColor) { innerPadding ->
         Column(
@@ -63,10 +77,7 @@ fun EmotionDetailScreen(
                     color = textColor,
                     letterSpacing = 2.sp
                 )
-                DarkModeToggle(
-                    isDark = isDark,
-                    onToggle = { onDarkModeToggle(it) }
-                )
+                DarkModeToggle(isDark = isDark, onToggle = { onDarkModeToggle(it) })
             }
 
             // ── 뒤로가기 + 타이틀 ──
@@ -95,14 +106,9 @@ fun EmotionDetailScreen(
                 Column {
                     Text(text = "감정 기록", fontSize = 12.sp, color = subTextColor)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Lottie 아이콘
                         val lottieRes = style?.lottieRes
                         if (lottieRes != null && lottieRes != 0) {
-                            LottieIcon(
-                                resId = lottieRes,
-                                size = 32.dp,
-                                isPlaying = true
-                            )
+                            LottieIcon(resId = lottieRes, size = 32.dp, isPlaying = true)
                         } else {
                             Text(text = emotionCardUi.emoji, fontSize = 20.sp)
                         }
@@ -117,44 +123,56 @@ fun EmotionDetailScreen(
                 }
             }
 
+            // ── 힌트 텍스트 ──
+            Text(
+                text = "길게 눌러서 삭제",
+                fontSize = 11.sp,
+                color = subTextColor,
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 8.dp)
+            )
+
             // ── 기록 리스트 ──
-            if (emotionCardUi.records.isEmpty()) {
+            if (records.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "아직 기록이 없어요",
-                        color = subTextColor,
-                        fontSize = 14.sp
-                    )
+                    Text(text = "아직 기록이 없어요", color = subTextColor, fontSize = 14.sp)
                 }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(emotionCardUi.records) { index, record ->
+                    itemsIndexed(records) { index, record ->
                         var visible by remember { mutableStateOf(false) }
                         LaunchedEffect(Unit) {
-                            delay(100L + index * 80L)
+                            delay(80L + index * 60L)
                             visible = true
                         }
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
-                            enter = fadeIn(tween(350)) + slideInVertically(
-                                animationSpec = tween(350),
+                            enter = androidx.compose.animation.fadeIn(
+                                androidx.compose.animation.core.tween(350)
+                            ) + androidx.compose.animation.slideInVertically(
+                                animationSpec = androidx.compose.animation.core.tween(350),
                                 initialOffsetY = { it / 2 }
                             )
                         ) {
-                            EmotionRecordItem(
+                            SwipeableRecordItem(
                                 record = record,
                                 isDark = isDark,
                                 cardBg = cardBg,
                                 textColor = textColor,
                                 subTextColor = subTextColor,
                                 tagColor = tagColor,
-                                style = style
+                                style = style,
+                                onDelete = {
+                                    records = records.filter { it.id != record.id }
+                                    viewModel.deleteRecord(record.id)
+                                }
                             )
                         }
                     }
@@ -165,75 +183,152 @@ fun EmotionDetailScreen(
     }
 }
 
-// ── 기록 아이템 카드 ──────────────────────────
+// ── 스와이프 삭제 카드 ────────────────────────
 @Composable
-fun EmotionRecordItem(
+fun SwipeableRecordItem(
     record: RecordResponse,
     isDark: Boolean,
     cardBg: Color,
     textColor: Color,
     subTextColor: Color,
     tagColor: Color,
-    style: com.project.beam.data.emotion.EmotionCard?
+    style: com.project.beam.data.emotion.EmotionCard?,
+    onDelete: () -> Unit
 ) {
+    var isLongPressed by remember { mutableStateOf(false) }
+    var offsetX by remember { mutableStateOf(0f) }
+    val animatedOffset by animateFloatAsState(
+        targetValue = offsetX,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "swipe"
+    )
+    val coroutineScope = rememberCoroutineScope()
+    val deleteThreshold = -200f
+
     val formattedDate = remember(record.created_at) {
-        try {
-            record.created_at.substring(0, 10).replace("-", ".")
-        } catch (e: Exception) {
-            record.created_at
-        }
+        try { record.created_at.substring(0, 10).replace("-", ".") }
+        catch (e: Exception) { record.created_at }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(cardBg)
-            .border(
-                1.dp,
-                if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
-                RoundedCornerShape(16.dp)
-            )
-            .padding(16.dp)
     ) {
-        Text(
-            text = record.content,
-            fontSize = 15.sp,
-            color = textColor,
-            lineHeight = 22.sp
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // ── 뒤 삭제 버튼 ──
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFFFF3B30)),
+            contentAlignment = Alignment.CenterEnd
         ) {
             Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(tagColor)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.padding(end = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val lottieRes = style?.lottieRes
-                if (lottieRes != null && lottieRes != 0) {
-                    LottieIcon(resId = lottieRes, size = 18.dp, isPlaying = true)
-                } else {
-                    Text(text = style?.emoji ?: "", fontSize = 12.sp)
-                }
-                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "삭제",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
                 Text(
-                    text = record.category,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
+                    text = "삭제",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-            Text(
-                text = formattedDate,
-                fontSize = 11.sp,
-                color = subTextColor
-            )
+        }
+
+        // ── 앞 카드 ──
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    if (isLongPressed)
+                        if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0F0F0)
+                    else cardBg
+                )
+                .border(
+                    1.dp,
+                    if (isLongPressed) Color(0xFFFF3B30).copy(alpha = 0.5f)
+                    else if (isDark) Color(0xFF2A2A2A) else Color(0xFFEEEEEE),
+                    RoundedCornerShape(16.dp)
+                )
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = { isLongPressed = true }
+                    )
+                }
+                .pointerInput(isLongPressed) {
+                    if (isLongPressed) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (offsetX < deleteThreshold) {
+                                    coroutineScope.launch {
+                                        offsetX = -600f
+                                        delay(200)
+                                        onDelete()
+                                    }
+                                } else {
+                                    offsetX = 0f
+                                    isLongPressed = false
+                                }
+                            },
+                            onHorizontalDrag = { _, dragAmount ->
+                                offsetX = (offsetX + dragAmount).coerceIn(-300f, 0f)
+                            }
+                        )
+                    }
+                }
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = record.content,
+                    fontSize = 15.sp,
+                    color = textColor,
+                    lineHeight = 22.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(tagColor)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val lottieRes = style?.lottieRes
+                        if (lottieRes != null && lottieRes != 0) {
+                            LottieIcon(resId = lottieRes, size = 18.dp, isPlaying = true)
+                        } else {
+                            Text(text = style?.emoji ?: "", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = record.category,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDark) Color(0xFFF0F0F0) else Color(0xFF1A1A1A)
+                        )
+                    }
+                    Text(
+                        text = formattedDate,
+                        fontSize = 11.sp,
+                        color = subTextColor
+                    )
+                }
+            }
         }
     }
 }

@@ -42,6 +42,8 @@ class EmotionViewModel : ViewModel() {
 
     private val _monthlyStats = MutableStateFlow<List<MonthlyEmotionResponse>>(emptyList())
     val monthlyStats: StateFlow<List<MonthlyEmotionResponse>> = _monthlyStats
+    private val _deleteState = MutableStateFlow<Boolean?>(null)
+    val deleteState: StateFlow<Boolean?> = _deleteState
 
     private val _lastCategory = MutableStateFlow<String?>(null)
     val lastCategory: StateFlow<String?> = _lastCategory
@@ -127,6 +129,24 @@ class EmotionViewModel : ViewModel() {
                 onFailure = { _slogan.value = null }
             )
         }
+    }
+
+    fun deleteRecord(recordId: Int) {
+        viewModelScope.launch {
+            repository.deleteRecord(recordId).fold(
+                onSuccess = {
+                    _deleteState.value = true
+                    loadHomeData()
+                },
+                onFailure = {
+                    _deleteState.value = false
+                }
+            )
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = null
     }
 
     fun resetSubmitState() {
