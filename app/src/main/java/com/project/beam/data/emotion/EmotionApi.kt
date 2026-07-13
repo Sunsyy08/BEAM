@@ -17,4 +17,7 @@ interface EmotionApi {
 
     @DELETE("records/{record_id}")
     suspend fun deleteRecord(@Path("record_id") recordId: Int)
+
+    @POST("records/stats/monthly-report")
+    suspend fun getMonthlyReport(): MonthlyReportResponse
 }

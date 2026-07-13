@@ -317,10 +317,10 @@ fun EmotionGrid(
                         count = card.count,
                         style = style,
                         isDark = isDark,
-                        lottieSize = 52.dp,
+                        lottieSize = 44.dp,
                         modifier = Modifier
                             .weight(1f)
-                            .height(110.dp)
+                            .height(130.dp)
                             .clickable { onEmotionClick(card) }
                     )
                 }

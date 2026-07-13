@@ -37,3 +37,10 @@ data class MonthlyEmotionResponse(
     val month: String,
     val emotions: List<EmotionStat>
 )
+
+data class MonthlyReportResponse(
+    val year: Int,
+    val month: Int,
+    val weather_comment: String,
+    val emotion_shift: String
+)

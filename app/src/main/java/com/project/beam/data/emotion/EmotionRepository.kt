@@ -39,4 +39,15 @@ class EmotionRepository {
             Result.failure(e)
         }
     }
+
+    suspend fun getMonthlyReport(): Result<MonthlyReportResponse> {
+        return try {
+            val report = ApiClient.emotionApi.getMonthlyReport()
+            android.util.Log.d("MonthlyReport", "성공: $report")
+            Result.success(report)
+        } catch (e: Exception) {
+            android.util.Log.e("MonthlyReport", "실패: ${e.message}")
+            Result.failure(e)
+        }
+    }
 }
